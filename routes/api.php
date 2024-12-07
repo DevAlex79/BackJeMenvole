@@ -18,3 +18,11 @@ Route::patch('/products/{id}', [ProductController::class, 'update']); // PATCH p
 
 // Route pour supprimer un produit
 Route::delete('/products/{id}', [ProductController::class, 'destroy']); // DELETE pour supprimer un produit
+
+Route::get('/test', function () {
+    return response()->json(['message' => 'API is working!']);    
+});
+
+Route::get('/debug', function () {
+    return response()->json(['status' => 'ok']);
+});
