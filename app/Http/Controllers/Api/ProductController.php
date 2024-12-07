@@ -18,8 +18,14 @@ class ProductController extends Controller
      */
     public function index()
     {
-        $products = Product::with('category', 'user')->get();
-        return response()->json($products, 200);
+        // $products = Product::with('category', 'user')->get();
+        // return response()->json($products, 200);
+        $products = Product::all();
+
+        // Transformer le nom des ressources en "Articles"
+        return response()->json([
+            'Articles' => $products
+        ], 200);
     }
 
     /**
@@ -34,11 +40,15 @@ class ProductController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'name' => 'required|string|max:255',
+            // 'name' => 'required|string|max:255',
+            // 'description' => 'nullable|string',
+            // 'price' => 'required|numeric|min:0',
+            // 'category_id' => 'required|exists:categories,id',
+            // 'user_id' => 'required|exists:users,id'
+            'title' => 'required|string|max:255', // Aligner avec le champ title
             'description' => 'nullable|string',
             'price' => 'required|numeric|min:0',
-            'category_id' => 'required|exists:categories,id',
-            'user_id' => 'required|exists:users,id'
+            'stock' => 'required|integer|min:0',
         ]);
 
         $product = Product::create($validated);
@@ -57,13 +67,20 @@ class ProductController extends Controller
      */
     public function show(string $id)
     {
-        $product = Product::with('category', 'user')->find($id);
+        // $product = Product::with('category', 'user')->find($id);
+
+        // if (!$product) {
+        //     return response()->json(['message' => 'Produit non trouvé'], 404);
+        // }
+
+        // return response()->json($product, 200);
+        $product = Product::find($id);
 
         if (!$product) {
             return response()->json(['message' => 'Produit non trouvé'], 404);
         }
 
-        return response()->json($product, 200);
+        return response()->json(['Article' => $product], 200);
     }
 
     /**
@@ -85,16 +102,21 @@ class ProductController extends Controller
         }
 
         $validated = $request->validate([
-            'name' => 'sometimes|required|string|max:255',
+            // 'name' => 'sometimes|required|string|max:255',
+            // 'description' => 'nullable|string',
+            // 'price' => 'sometimes|required|numeric|min:0',
+            // 'category_id' => 'sometimes|required|exists:categories,id',
+            // 'user_id' => 'sometimes|required|exists:users,id'
+            'title' => 'sometimes|required|string|max:255',
             'description' => 'nullable|string',
             'price' => 'sometimes|required|numeric|min:0',
-            'category_id' => 'sometimes|required|exists:categories,id',
-            'user_id' => 'sometimes|required|exists:users,id'
+            'stock' => 'sometimes|required|integer|min:0',
         ]);
 
         $product->update($validated);
 
-        return response()->json($product, 200);
+        //return response()->json($product, 200);
+        return response()->json(['Article' => $product], 200);
     }
 
     /**

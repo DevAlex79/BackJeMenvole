@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use App\Models\Role;
 
 class User extends Authenticatable
 {
@@ -18,10 +20,14 @@ class User extends Authenticatable
      *
      * @var array<int, string>
      */
+    protected $table = 'users'; // Aligner avec le nom de la table en BDD
+    protected $primaryKey = 'id_user'; // Indiquer la clé primaire
+
     protected $fillable = [
-        'name',
-        'email',
+        'username', // Aligner avec "username" en BDD
         'password',
+        'email',
+        'Roles_id_role', // Clé étrangère vers la table roles
     ];
 
     /**
@@ -55,6 +61,14 @@ class User extends Authenticatable
     public function products(): HasMany
     {
         return $this->hasMany(Product::class);
+    }
+
+    /**
+     * Relation avec le rôle (belongsTo).
+     */
+    public function role(): BelongsTo
+    {
+        return $this->belongsTo(Role::class, 'Roles_id_role', 'id_role');
     }
 
 

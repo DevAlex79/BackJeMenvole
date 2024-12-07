@@ -16,18 +16,26 @@ class UserSeeder extends Seeder
     {
         // Admin User
         User::create([
-            'name' => 'Admin',
+            'username' => 'Admin', // Aligner avec "username" en BDD
             'email' => 'admin@example.com',
             'password' => Hash::make('password'),
-            'role' => 'admin'
+            'Roles_id_role' => 3, // ID correspondant au rôle "Administrateur"
         ]);
 
         // Client User
         User::create([
-            'name' => 'Client',
+            'username' => 'Client',
             'email' => 'client@example.com',
             'password' => Hash::make('password'),
-            'role' => 'client'
+            'Roles_id_role' => 1, // ID correspondant au rôle "Client"
+        ]);
+
+        // Vendeur User
+        User::create([
+            'username' => 'Vendeur',
+            'email' => 'vendeur@example.com',
+            'password' => Hash::make('password'),
+            'Roles_id_role' => 2, // ID correspondant au rôle "Vendeur"
         ]);
     }
 }
