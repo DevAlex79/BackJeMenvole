@@ -28,6 +28,8 @@ class User extends Authenticatable
         'password',
         'email',
         'Roles_id_role', // Clé étrangère vers la table roles
+        'email_verified_at', // Ajouté
+        'remember_token',    // Ajouté
     ];
 
     /**
