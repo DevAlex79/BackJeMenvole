@@ -3,6 +3,8 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\RoleController;
+use App\Http\Controllers\Api\RegisterController;
+use App\Http\Controllers\Api\OrderController;
 
 // Route pour obtenir tous les produits
 //Route::get('/products', [ProductController::class, 'index']); // GET pour lister tous les produits
@@ -39,3 +41,6 @@ Route::post('/roles', [RoleController::class, 'store']);       // Créer un rôl
 Route::get('/roles/{id}', [RoleController::class, 'show']);    // Afficher un rôle spécifique
 Route::put('/roles/{id}', [RoleController::class, 'update']);  // Mettre à jour un rôle
 Route::delete('/roles/{id}', [RoleController::class, 'destroy']); // Supprimer un rôle
+
+Route::post('/register', [RegisterController::class, 'register']); // Inscription
+Route::post('/orders/complete', [OrderController::class, 'completeOrder']); // Finalisation de commande

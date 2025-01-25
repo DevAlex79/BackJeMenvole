@@ -11,16 +11,15 @@ return new class extends Migration
      */
     public function up(): void
     {
-        if (!Schema::hasTable('products')) {
-            Schema::create('products', function (Blueprint $table) {
+        if (!Schema::hasTable('orders')) {
+            Schema::create('orders', function (Blueprint $table) {
                 $table->id();
-                $table->string('name');
-                $table->text('description')->nullable();
-                $table->decimal('price', 8, 2);
-                $table->foreignId('category_id')->constrained()->onDelete('cascade');
+                $table->foreignId('user_id')->constrained()->onDelete('cascade');
+                $table->decimal('amount', 10, 2);
+                $table->json('items'); // Stocker les articles commandés sous forme de JSON
                 $table->timestamps();
             });
-        }
+    }
     }
 
     /**
@@ -28,6 +27,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('products');
+        Schema::dropIfExists('orders');
     }
 };
