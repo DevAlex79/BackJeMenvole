@@ -7,14 +7,19 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
-class OrderCompletedNotification extends Notification
+class OrderCompletedNotification extends Notification implements ShouldQueue
 {
     use Queueable;
 
     /**
      * Create a new notification instance.
      */
-    public function __construct(public $orderDetails)
+    // public function __construct(public $orderDetails)
+    // {
+    //     //
+    // }
+
+    public function __construct(public $order)
     {
         //
     }
@@ -36,11 +41,11 @@ class OrderCompletedNotification extends Notification
     {
         return (new MailMessage)
                 ->subject('Commande Finalisée')
-                ->greeting('Bonjour ' . $notifiable->name . ',')
+                ->greeting('Bonjour ' . $notifiable->username . ',')
                 ->line('Votre commande a bien été finalisée.')
                 ->line('Détails de votre commande :')
-                ->line('Numéro : ' . $this->orderDetails['order_id'])
-                ->line('Montant : ' . $this->orderDetails['amount'] . '€')
+                ->line('Numéro de commande : ' . $this->order->id_order)
+                ->line('Montant total : ' . $this->order->total_price . '€')
                 ->action('Voir mes commandes', url('/orders'))
                 ->salutation('Merci pour votre confiance, l\'équipe Je m\'envole');
     }
@@ -53,7 +58,8 @@ class OrderCompletedNotification extends Notification
     public function toArray(object $notifiable): array
     {
         return [
-            //
+            'order_id' => $this->order->id,
+            'amount' => $this->order->amount,
         ];
     }
 }

@@ -36,7 +36,7 @@ class UserRegisteredNotification extends Notification
     {
         return (new MailMessage)
             ->subject('Bienvenue sur Je m\'envole')
-            ->greeting('Bonjour ' . $notifiable->name . ',')
+            ->greeting('Bonjour ' . $notifiable->username . ',')
             ->line('Merci de vous être inscrit sur notre site.')
             ->line('Nous espérons que vous apprécierez votre expérience.')
             ->action('Visitez notre site', url('/'))

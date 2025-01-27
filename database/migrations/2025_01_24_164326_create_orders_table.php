@@ -13,7 +13,7 @@ return new class extends Migration
     {
         if (!Schema::hasTable('orders')) {
             Schema::create('orders', function (Blueprint $table) {
-                $table->id();
+                $table->id('id_order');
                 $table->foreignId('user_id')->constrained()->onDelete('cascade');
                 $table->decimal('amount', 10, 2);
                 $table->json('items'); // Stocker les articles commandés sous forme de JSON
