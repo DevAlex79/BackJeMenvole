@@ -2,22 +2,16 @@
 
 namespace App\Notifications;
 
-use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
-class OrderCompletedNotification extends Notification implements ShouldQueue
+class OrderCompletedNotification extends Notification 
 {
-    use Queueable;
+    
 
     /**
      * Create a new notification instance.
      */
-    // public function __construct(public $orderDetails)
-    // {
-    //     //
-    // }
 
     public function __construct(public $order)
     {
@@ -59,7 +53,7 @@ class OrderCompletedNotification extends Notification implements ShouldQueue
     {
         return [
             'order_id' => $this->order->id,
-            'amount' => $this->order->amount,
+            'total_price' => $this->order->total_price,
         ];
     }
 }
