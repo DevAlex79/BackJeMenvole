@@ -9,11 +9,13 @@ use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use App\Models\Role;
+use App\Scopes\ArchivedScope;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable;
+    use HasFactory, Notifiable, SoftDeletes;
 
     /**
      * The attributes that are mass assignable.
@@ -22,6 +24,7 @@ class User extends Authenticatable
      */
     protected $table = 'users'; // Aligner avec le nom de la table en BDD
     protected $primaryKey = 'id_user'; // Indiquer la clé primaire
+    protected $dates = ['deleted_at']; // Ajouté
 
     protected $fillable = [
         'username', // Aligner avec "username" en BDD
@@ -73,5 +76,10 @@ class User extends Authenticatable
         return $this->belongsTo(Role::class, 'Roles_id_role', 'id_role');
     }
 
+    // Application du Scope
+    protected static function booted()
+    {
+        static::addGlobalScope(new ArchivedScope);
+    }
 
 }

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Product;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
 
 class ProductController extends Controller
 {
@@ -140,5 +141,27 @@ class ProductController extends Controller
 
         return response()->json(['message' => 'Produit supprimé avec succès'], 200);
     }
+
+    public function updateStock(Request $request, $id)
+    {
+        $product = Product::find($id);
+
+        if (!$product) {
+            return response()->json(['error' => 'Produit introuvable'], 404);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'stock' => 'required|integer|min:0',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+
+        $product->update(['stock' => $request->stock]);
+
+        return response()->json(['message' => 'Stock mis à jour avec succès', 'product' => $product], 200);
+    }
+
     
 }

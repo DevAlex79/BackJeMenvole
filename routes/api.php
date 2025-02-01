@@ -28,6 +28,8 @@ Route::post('/articles', [ProductController::class, 'store']);       // Créer u
 Route::get('/articles/{id}', [ProductController::class, 'show']);    // Afficher un article spécifique
 Route::put('/articles/{id}', [ProductController::class, 'update']);  // Mettre à jour un article
 Route::delete('/articles/{id}', [ProductController::class, 'destroy']); // Supprimer un article
+Route::put('/articles/{id}/stock', [ProductController::class, 'updateStock']); // Mettre à jour le stock d'un article
+
 
 Route::get('/test', function () {
     return response()->json(['message' => 'API is working!']);    
@@ -52,6 +54,7 @@ Route::delete('/users/{id}', [UserController::class, 'destroy']); // Supprimer u
 
 // Routes pour les commandes
 Route::get('/orders', [OrderController::class, 'index']); // Lister toutes les commandes
+Route::post('/orders', [OrderController::class, 'store']); // Créer une commande
 Route::post('/orders/complete', [OrderController::class, 'completeOrder']); // Finalisation de commande
 Route::put('/orders/{id}', [OrderController::class, 'update']); // Modifier une commande
 Route::delete('/orders/{id}', [OrderController::class, 'destroy']); // Supprimer une commande

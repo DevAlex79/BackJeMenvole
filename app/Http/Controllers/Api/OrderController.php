@@ -110,6 +110,37 @@ class OrderController extends Controller
         return response()->json(['message' => 'Commande supprimée avec succès'], 200);
     }
 
+    public function store(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'user_id' => 'required|exists:users,id_user',
+            'total_price' => 'required|numeric|min:0',
+            'status' => 'required|string|max:20',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+
+        // Vérifier que l'utilisateur existe
+        $user = User::find($request->user_id);
+        if (!$user) {
+            return response()->json(['error' => 'Utilisateur introuvable'], 404);
+        }
+
+        // Créer la commande
+        $order = Order::create([
+            'users_id_user' => $request->user_id,
+            'total_price' => $request->total_price,
+            'status' => $request->status,
+        ]);
+
+        // Notifier l'utilisateur
+        $order->user->notify(new OrderCompletedNotification($order));
+
+        return response()->json(['message' => 'Commande créée avec succès', 'order' => $order], 201);
+    }
+
 
 
 
