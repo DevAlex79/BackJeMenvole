@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\RegisterController;
 use App\Http\Controllers\Api\OrderController;
+use App\Http\Controllers\Api\UserController;
 
 // Route pour obtenir tous les produits
 //Route::get('/products', [ProductController::class, 'index']); // GET pour lister tous les produits
@@ -43,4 +44,14 @@ Route::put('/roles/{id}', [RoleController::class, 'update']);  // Mettre à jour
 Route::delete('/roles/{id}', [RoleController::class, 'destroy']); // Supprimer un rôle
 
 Route::post('/register', [RegisterController::class, 'register']); // Inscription
+
+// Routes pour les utilisateurs
+Route::get('/users', [UserController::class, 'index']); // Lister les utilisateurs
+Route::put('/users/{id}', [UserController::class, 'update']); // Modifier un utilisateur
+Route::delete('/users/{id}', [UserController::class, 'destroy']); // Supprimer un utilisateur
+
+// Routes pour les commandes
+Route::get('/orders', [OrderController::class, 'index']); // Lister toutes les commandes
 Route::post('/orders/complete', [OrderController::class, 'completeOrder']); // Finalisation de commande
+Route::put('/orders/{id}', [OrderController::class, 'update']); // Modifier une commande
+Route::delete('/orders/{id}', [OrderController::class, 'destroy']); // Supprimer une commande
