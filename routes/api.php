@@ -6,6 +6,8 @@ use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\RegisterController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\UserController;
+use App\Http\Controllers\Api\AuthController;
+
 
 // Route pour obtenir tous les produits
 //Route::get('/products', [ProductController::class, 'index']); // GET pour lister tous les produits
@@ -58,3 +60,12 @@ Route::post('/orders', [OrderController::class, 'store']); // Créer une command
 Route::post('/orders/complete', [OrderController::class, 'completeOrder']); // Finalisation de commande
 Route::put('/orders/{id}', [OrderController::class, 'update']); // Modifier une commande
 Route::delete('/orders/{id}', [OrderController::class, 'destroy']); // Supprimer une commande
+
+Route::post('/login', [AuthController::class, 'login']); // Connexion
+Route::post('/register', [AuthController::class, 'register']); // Inscription
+Route::post('/logout', [AuthController::class, 'logout']); // Deconnexion
+Route::post('/refresh', [AuthController::class, 'refresh']); // Actualiser le token
+Route::get('/user-profile', [AuthController::class, 'userProfile']); // Profil utilisateur
+
+
+
