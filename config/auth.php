@@ -45,14 +45,25 @@ return [
     //         'driver' => 'session',
     //         'provider' => 'users',
     //     ],
-    // ],
+    // ,
 
+    // 'guards' => [
+    //     'api' => [
+    //         'driver' => 'jwt',
+    //         'provider' => 'users',
+    //     ],
+    // ],
     'guards' => [
-        'api' => [
-            'driver' => 'jwt',
+        'web' => [
+            'driver' => 'session',
             'provider' => 'users',
         ],
-    ],
+
+        'api' => [
+            'driver' => 'jwt',  // 🔹 Vérifie bien que c'est "jwt"
+            'provider' => 'users',
+        ],
+],
 
     /*
     |--------------------------------------------------------------------------

@@ -1,6 +1,8 @@
 <?php
 
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\RegisterController;
@@ -66,6 +68,23 @@ Route::post('/register', [AuthController::class, 'register']); // Inscription
 Route::post('/logout', [AuthController::class, 'logout']); // Deconnexion
 Route::post('/refresh', [AuthController::class, 'refresh']); // Actualiser le token
 Route::get('/user-profile', [AuthController::class, 'userProfile']); // Profil utilisateur
+
+// Route sécurisée pour récupérer les infos utilisateur
+// Route::middleware('auth:api')->get('/user', function (Request $request) {
+//     return response()->json([
+//         'user' => $request->user()
+//     ]);
+// });
+Route::middleware('jwt.auth')->get('/user', function (Request $request) {
+   // return response()->json(['user' => Auth::user()]);
+    return response()->json([
+    'user' => Auth::guard('api')->user(),
+    'message' => 'Utilisateur authentifié avec succès'
+]);
+});
+
+
+Route::middleware('auth:api')->post('/orders', [OrderController::class, 'store']);
 
 
 

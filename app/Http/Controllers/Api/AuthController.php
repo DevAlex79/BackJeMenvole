@@ -42,8 +42,9 @@ class AuthController extends Controller
     {
         //return response()->json(Auth::user());
         try {
-            $user = Auth::user();
-            if (!$user) {
+            //$user = Auth::user();
+            //$user = Auth::guard('api')->user();
+            if (!$user = Auth::user()) {
                 return response()->json(['error' => 'Utilisateur non authentifié'], 401);
             }
             return response()->json($user);

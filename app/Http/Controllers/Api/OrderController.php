@@ -25,7 +25,8 @@ class OrderController extends Controller
         // ]);
 
         $validator = Validator::make($request->all(), [
-            'user_id' => 'required|exists:users,id_user',
+            //'user_id' => 'required|exists:users,id_user',
+            'id_user' => 'required|exists:users,id',
             'total_price' => 'required|numeric|min:0',
             'status' => 'required|string|max:20',
         ],[
@@ -113,9 +114,17 @@ class OrderController extends Controller
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'user_id' => 'required|exists:users,id_user',
+            // 'user_id' => 'required|exists:users,id_user',
+            // 'total_price' => 'required|numeric|min:0',
+            // 'status' => 'required|string|max:20',
+            //'user_id' => 'required|exists:users,id',
+            'id_user' => 'required|exists:users,id',
+            'cart' => 'required|array',
+            'cart.*.title' => 'required|string',
+            'cart.*.quantity' => 'required|integer|min:1',
+            'cart.*.unitPrice' => 'required|numeric|min:0',
             'total_price' => 'required|numeric|min:0',
-            'status' => 'required|string|max:20',
+            'status' => 'required|string|in:en attente,confirmée,expédiée,livrée'
         ]);
 
         if ($validator->fails()) {
@@ -123,14 +132,19 @@ class OrderController extends Controller
         }
 
         // Vérifier que l'utilisateur existe
-        $user = User::find($request->user_id);
+        $user = User::find($request->id_user);
         if (!$user) {
             return response()->json(['error' => 'Utilisateur introuvable'], 404);
         }
 
         // Créer la commande
         $order = Order::create([
-            'users_id_user' => $request->user_id,
+            // 'users_id_user' => $request->user_id,
+            // 'total_price' => $request->total_price,
+            // 'status' => $request->status,
+            //'user_id' => $request->user_id,
+            'id_user' => $request->id_user,
+            'cart' => json_encode($request->cart),
             'total_price' => $request->total_price,
             'status' => $request->status,
         ]);
