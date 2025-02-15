@@ -8,6 +8,8 @@ use App\Models\Order;
 use App\Notifications\OrderCompletedNotification;
 use App\Models\User;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 
 class OrderController extends Controller
 {
@@ -26,7 +28,7 @@ class OrderController extends Controller
 
         $validator = Validator::make($request->all(), [
             //'user_id' => 'required|exists:users,id_user',
-            'id_user' => 'required|exists:users,id',
+            'id_user' => 'required|exists:users,id_user',
             'total_price' => 'required|numeric|min:0',
             'status' => 'required|string|max:20',
         ],[
@@ -49,7 +51,9 @@ class OrderController extends Controller
         $validated = $validator->validated();
 
         // Vérifier que l'utilisateur existe
-        $user = User::find($validated['user_id']);
+        //$user = User::find($validated['id_user']);
+        $user = User::where('id_user', $validated['id_user'])->first();
+
         if (!$user) {
             return response()->json(['error' => 'Utilisateur introuvable'], 404);
         }
@@ -76,6 +80,11 @@ class OrderController extends Controller
         if ($orders->isEmpty()) {
             return response()->json(['message' => 'Aucune commande trouvée'], 404);
         }
+
+        // $orders = Order::all()->map(function ($order) {
+        //     $order->cart = json_decode($order->cart); // Décodage JSON correct
+        //     return $order;
+        // });
 
         return response()->json($orders, 200);
     }
@@ -113,12 +122,17 @@ class OrderController extends Controller
 
     public function store(Request $request)
     {
+        $user = Auth::user();
+        if (!$user) {
+            return response()->json(['error' => 'Utilisateur non authentifié'], 401);
+        }
+
         $validator = Validator::make($request->all(), [
             // 'user_id' => 'required|exists:users,id_user',
             // 'total_price' => 'required|numeric|min:0',
             // 'status' => 'required|string|max:20',
             //'user_id' => 'required|exists:users,id',
-            'id_user' => 'required|exists:users,id',
+            'id_user' => 'required|exists:users,id_user',
             'cart' => 'required|array',
             'cart.*.title' => 'required|string',
             'cart.*.quantity' => 'required|integer|min:1',
@@ -137,13 +151,16 @@ class OrderController extends Controller
             return response()->json(['error' => 'Utilisateur introuvable'], 404);
         }
 
+        Log::info('Données reçues pour création de commande', $request->all());
+
+
         // Créer la commande
         $order = Order::create([
             // 'users_id_user' => $request->user_id,
             // 'total_price' => $request->total_price,
             // 'status' => $request->status,
             //'user_id' => $request->user_id,
-            'id_user' => $request->id_user,
+            'users_id_user' => $request->id_user,
             'cart' => json_encode($request->cart),
             'total_price' => $request->total_price,
             'status' => $request->status,

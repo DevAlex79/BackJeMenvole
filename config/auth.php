@@ -60,7 +60,7 @@ return [
         ],
 
         'api' => [
-            'driver' => 'jwt',  // 🔹 Vérifie bien que c'est "jwt"
+            'driver' => 'jwt',  //Vérifie bien que c'est "jwt"
             'provider' => 'users',
         ],
 ],

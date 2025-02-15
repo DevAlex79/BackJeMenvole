@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Product;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Auth;
 
 class ProductController extends Controller
 {
@@ -40,6 +41,11 @@ class ProductController extends Controller
      */
     public function store(Request $request)
     {
+         // Vérifie que l'utilisateur est authentifié
+        $user = Auth::user();
+        if (!$user || $user->role_id !== 3) {  // 'role_id' est bien le champ du rôle
+            return response()->json(['error' => 'Accès refusé. Seul un administrateur peut ajouter un produit.'], 403);
+        }
         $validated = $request->validate([
             // 'name' => 'required|string|max:255',
             // 'description' => 'nullable|string',
@@ -49,12 +55,14 @@ class ProductController extends Controller
             'title' => 'required|string|max:255', // Aligner avec le champ title
             'description' => 'nullable|string',
             'price' => 'required|numeric|min:0',
+            'category_id' => 'required|exists:categories,id_category',
             'stock' => 'required|integer|min:0',
         ]);
 
         $product = Product::create($validated);
 
-        return response()->json($product, 201);
+        //return response()->json($product, 201);
+        return response()->json(['message' => 'Produit ajouté avec succès', 'product' => $product], 201);
     }
 
     /**

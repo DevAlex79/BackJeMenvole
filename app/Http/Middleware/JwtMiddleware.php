@@ -26,9 +26,14 @@ class JwtMiddleware
             if (!$user) {
                 return response()->json(['error' => 'Utilisateur non authentifié'], 401);
             }
+        } catch (\Tymon\JWTAuth\Exceptions\TokenExpiredException $e) {
+            return response()->json(['error' => 'Token expiré'], 401);
+        } catch (\Tymon\JWTAuth\Exceptions\TokenInvalidException $e) {
+            return response()->json(['error' => 'Token invalide'], 401);    
         } catch (\Exception $e) {
-            return response()->json(['error' => 'Token invalide ou expiré'], 401);
-        }
+                return response()->json(['error' => 'Problème avec le token: ' . $e->getMessage()], 401);
+            }
+        
 
         return $next($request);
     }

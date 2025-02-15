@@ -18,6 +18,7 @@ class Order extends Model
 
     protected $fillable = [
         'users_id_user', // Clé étrangère vers la table users
+        'cart',
         'total_price',
         'status',
     ];

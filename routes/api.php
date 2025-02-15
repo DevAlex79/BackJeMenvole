@@ -63,7 +63,8 @@ Route::post('/orders/complete', [OrderController::class, 'completeOrder']); // F
 Route::put('/orders/{id}', [OrderController::class, 'update']); // Modifier une commande
 Route::delete('/orders/{id}', [OrderController::class, 'destroy']); // Supprimer une commande
 
-Route::post('/login', [AuthController::class, 'login']); // Connexion
+//Route::post('/login', [AuthController::class, 'login']); // Connexion
+Route::post('/login', [AuthController::class, 'login'])->name('login'); // Connexion
 Route::post('/register', [AuthController::class, 'register']); // Inscription
 Route::post('/logout', [AuthController::class, 'logout']); // Deconnexion
 Route::post('/refresh', [AuthController::class, 'refresh']); // Actualiser le token
