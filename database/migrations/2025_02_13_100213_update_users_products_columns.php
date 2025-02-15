@@ -25,6 +25,10 @@ return new class extends Migration
         //     }
         // });
 
+        Schema::table('orders', function (Blueprint $table) {
+            $table->dropForeign('orders_users_id_user_foreign'); // Supprime la contrainte existante
+        });
+        
          //Vérification des clés étrangères avant suppression
         if (DB::table('information_schema.TABLE_CONSTRAINTS')
         ->where('TABLE_SCHEMA', env('DB_DATABASE'))
@@ -51,6 +55,11 @@ return new class extends Migration
         Schema::table('products', function (Blueprint $table) {
             $table->unsignedBigInteger('id_product')->change();
         });
+
+        Schema::table('discount_coupons', function (Blueprint $table) {
+            $table->unsignedBigInteger('users_id_user')->change(); // S'assurer qu'il est bien BIGINT UNSIGNED
+        });
+        
 
         //Réattachement des clés étrangères
         Schema::table('orders', function (Blueprint $table) {
