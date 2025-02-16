@@ -52,7 +52,7 @@ class OrderCompletedNotification extends Notification
     public function toArray(object $notifiable): array
     {
         return [
-            'order_id' => $this->order->id,
+            'order_id' => $this->order->id_order,
             'total_price' => $this->order->total_price,
         ];
     }

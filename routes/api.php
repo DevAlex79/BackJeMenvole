@@ -65,7 +65,8 @@ Route::delete('/orders/{id}', [OrderController::class, 'destroy']); // Supprimer
 
 //Route::post('/login', [AuthController::class, 'login']); // Connexion
 Route::post('/login', [AuthController::class, 'login'])->name('login'); // Connexion
-Route::post('/register', [AuthController::class, 'register']); // Inscription
+//Route::post('/register', [AuthController::class, 'register']); // Inscription
+Route::post('/register', [RegisterController::class, 'register'])->name('register'); // Inscription
 Route::post('/logout', [AuthController::class, 'logout']); // Deconnexion
 Route::post('/refresh', [AuthController::class, 'refresh']); // Actualiser le token
 Route::get('/user-profile', [AuthController::class, 'userProfile']); // Profil utilisateur

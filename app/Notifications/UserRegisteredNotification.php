@@ -6,6 +6,7 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
+use Illuminate\Support\Facades\Log;
 
 class UserRegisteredNotification extends Notification
 {
@@ -24,7 +25,7 @@ class UserRegisteredNotification extends Notification
      *
      * @return array<int, string>
      */
-    public function via(object $notifiable): array
+    public function via(): array
     {
         return ['mail'];
     }
@@ -34,6 +35,8 @@ class UserRegisteredNotification extends Notification
      */
     public function toMail(object $notifiable): MailMessage
     {
+        Log::info("Notification envoyée à : " . $notifiable->email);
+
         return (new MailMessage)
             ->subject('Bienvenue sur Je m\'envole')
             ->greeting('Bonjour ' . $notifiable->username . ',')

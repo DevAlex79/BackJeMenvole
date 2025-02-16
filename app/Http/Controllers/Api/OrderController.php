@@ -75,17 +75,19 @@ class OrderController extends Controller
 
     public function index()
     {
-        $orders = Order::with('user')->get();
+        $user = Auth::user(); // Récupérer l'utilisateur connecté
 
+        if (!$user) {
+            return response()->json(['error' => 'Utilisateur non authentifié'], 401);
+        }
+    
+        // Filtrer les commandes par utilisateur connecté
+        $orders = Order::where('users_id_user', $user->id_user)->with('user')->get();
+    
         if ($orders->isEmpty()) {
             return response()->json(['message' => 'Aucune commande trouvée'], 404);
         }
-
-        // $orders = Order::all()->map(function ($order) {
-        //     $order->cart = json_decode($order->cart); // Décodage JSON correct
-        //     return $order;
-        // });
-
+    
         return response()->json($orders, 200);
     }
 
