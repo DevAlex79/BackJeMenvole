@@ -7,6 +7,8 @@ use App\Models\Product;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Log;
 
 class ProductController extends Controller
 {
@@ -39,30 +41,56 @@ class ProductController extends Controller
      * @param  \Illuminate\Http\Request  $request
      * @return \Illuminate\Http\JsonResponse
      */
+    /**
+     * Ajoute un nouveau produit (réservé aux admins et vendeurs).
+     */
     public function store(Request $request)
     {
-         // Vérifie que l'utilisateur est authentifié
         $user = Auth::user();
-        if (!$user || $user->role_id !== 3) {  // 'role_id' est bien le champ du rôle
-            return response()->json(['error' => 'Accès refusé. Seul un administrateur peut ajouter un produit.'], 403);
+
+        if (!$user || !Gate::allows('create', Product::class)) {
+            return response()->json(['error' => 'Accès refusé.'], 403);
         }
+
+        // Validation des données de la requête
         $validated = $request->validate([
-            // 'name' => 'required|string|max:255',
-            // 'description' => 'nullable|string',
-            // 'price' => 'required|numeric|min:0',
-            // 'category_id' => 'required|exists:categories,id',
-            // 'user_id' => 'required|exists:users,id'
-            'title' => 'required|string|max:255', // Aligner avec le champ title
+            'title' => 'required|string|max:255',
             'description' => 'nullable|string',
             'price' => 'required|numeric|min:0',
-            'category_id' => 'required|exists:categories,id_category',
             'stock' => 'required|integer|min:0',
+            'categories_id_category' => 'required|exists:categories,id', // Exige une catégorie existante
         ]);
 
-        $product = Product::create($validated);
+        // Vérifie si la catégorie existe bien
+        $categoryExists = \App\Models\Category::where('id', $validated['categories_id_category'])->exists();
+        if (!$categoryExists) {
+            return response()->json(['error' => 'La catégorie spécifiée n\'existe pas.'], 422);
+        }
 
-        //return response()->json($product, 201);
-        return response()->json(['message' => 'Produit ajouté avec succès', 'product' => $product], 201);
+        // Ajout automatique de l'ID du créateur (vendeur/admin)
+        $validated['users_id_user'] = $user->id_user;
+
+        // Création du produit avec toutes les données validées
+        $product = Product::create($validated);
+        // $product = Product::create([
+        //     'title' => $validated['title'],
+        //     'description' => $validated['description'],
+        //     'price' => $validated['price'],
+        //     'stock' => $validated['stock'],
+        //     'categories_id_category' => $validated['categories_id_category'], // Ajout correct de la catégorie
+        //     'users_id_user' => $user->id_user, // Ajout correct de l'ID de l'utilisateur]);
+
+        return response()->json(['message' => 'Produit ajouté', 'product' => $product], 201);
+
+    }
+
+    /**
+     * Affiche les détails d’un produit.
+     */
+    public function edit($id)
+    {
+        $product = Product::findOrFail($id);
+        return response()->json($product, 200);
     }
 
     /**
@@ -104,28 +132,16 @@ class ProductController extends Controller
      */
     public function update(Request $request, string $id)
     {
-        $product = Product::find($id);
+        $user = Auth::user();
+        $product = Product::findOrFail($id);
 
-        if (!$product) {
-            return response()->json(['message' => 'Produit non trouvé'], 404);
+        if (!$user || !Gate::allows('update', $product)) {
+            return response()->json(['error' => 'Accès refusé.'], 403);
         }
 
-        $validated = $request->validate([
-            // 'name' => 'sometimes|required|string|max:255',
-            // 'description' => 'nullable|string',
-            // 'price' => 'sometimes|required|numeric|min:0',
-            // 'category_id' => 'sometimes|required|exists:categories,id',
-            // 'user_id' => 'sometimes|required|exists:users,id'
-            'title' => 'sometimes|required|string|max:255',
-            'description' => 'nullable|string',
-            'price' => 'sometimes|required|numeric|min:0',
-            'stock' => 'sometimes|required|integer|min:0',
-        ]);
+        $product->update($request->all());
 
-        $product->update($validated);
-
-        //return response()->json($product, 200);
-        return response()->json(['Article' => $product], 200);
+        return response()->json(['message' => 'Produit mis à jour', 'product' => $product], 200);
     }
 
     /**
@@ -139,25 +155,29 @@ class ProductController extends Controller
      */
     public function destroy(string $id)
     {
-        $product = Product::find($id);
+        $user = Auth::user();
+        $product = Product::findOrFail($id);
 
-        if (!$product) {
-            return response()->json(['message' => 'Produit non trouvé'], 404);
+        if (!$user || !Gate::allows('delete', $product)) {
+            return response()->json(['error' => 'Accès refusé.'], 403);
         }
 
         $product->delete();
 
-        return response()->json(['message' => 'Produit supprimé avec succès'], 200);
+        return response()->json(['message' => 'Produit supprimé'], 200);
     }
 
     public function updateStock(Request $request, $id)
     {
-        $product = Product::find($id);
+        $user = Auth::user();
+        $product = Product::findOrFail($id);
 
-        if (!$product) {
-            return response()->json(['error' => 'Produit introuvable'], 404);
+        // Vérification d'autorisation via Policy
+        if (!$user || !Gate::allows('updateStock', $product)) {
+            return response()->json(['error' => 'Accès refusé.'], 403);
         }
 
+        // Validation des données de mise à jour
         $validator = Validator::make($request->all(), [
             'stock' => 'required|integer|min:0',
         ]);

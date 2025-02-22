@@ -23,7 +23,20 @@ class AuthController extends Controller
             return response()->json(['error' => 'Unauthorized'], 401);
         }
 
-        return $this->respondWithToken($token);
+        //return $this->respondWithToken($token);
+        $user = Auth::user();
+
+        return response()->json([
+            'access_token' => $token,
+            'token_type' => 'bearer',
+            'expires_in' => Auth::factory()->getTTL() * 60,
+            'user' => [
+                'id' => $user->id_user,
+                'username' => $user->username,
+                'email' => $user->email,
+                'role' => $user->Roles_id_role // Ajout du rôle 
+            ]
+        ]);
     }
 
     public function logout()

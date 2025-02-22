@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
@@ -87,6 +88,24 @@ Route::middleware('jwt.auth')->get('/user', function (Request $request) {
 
 
 Route::middleware('auth:api')->post('/orders', [OrderController::class, 'store']);
+
+// Routes protégées : accès uniquement aux admins et vendeurs
+Route::middleware(['jwt.auth:2,3'])->group(function () {
+    Route::get('/admin/products', [ProductController::class, 'index']); // Lister produits
+    Route::post('/admin/products/store', [ProductController::class, 'store']); // Ajouter
+    Route::get('/admin/products/edit/{id}', [ProductController::class, 'edit']); // Voir un produit
+    Route::post('/admin/products/update/{id}', [ProductController::class, 'update']); // Modifier
+    Route::delete('/admin/products/delete/{id}', [ProductController::class, 'destroy']); // Supprimer
+});
+
+Route::middleware(['jwt.auth'])->group(function () {
+    Route::post('/admin/create-user', [UserController::class, 'createUser']);
+});
+
+// Route::middleware(['jwt.auth:2,3'])->group(function () {
+//     Route::get('/admin/products', [ProductController::class, 'index']);
+// });
+
 
 
 

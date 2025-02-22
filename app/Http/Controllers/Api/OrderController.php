@@ -65,6 +65,9 @@ class OrderController extends Controller
             'users_id_user' => $validated['user_id'],
             'total_price' => $validated['total_price'],
             'status' => $validated['status'],
+            'shipment_type' => $request->shipmentType,
+            'shipment_price' => $request->shipmentPrice,
+
         ]);
 
         // Récupérer l'utilisateur lié et envoyer la notification
@@ -140,7 +143,9 @@ class OrderController extends Controller
             'cart.*.quantity' => 'required|integer|min:1',
             'cart.*.unitPrice' => 'required|numeric|min:0',
             'total_price' => 'required|numeric|min:0',
-            'status' => 'required|string|in:en attente,confirmée,expédiée,livrée'
+            'status' => 'required|string|in:en attente,confirmée,expédiée,livrée',
+            'shipmentType' => 'required|string',
+            'shipmentPrice' => 'required|numeric|min:0'
         ]);
 
         if ($validator->fails()) {
