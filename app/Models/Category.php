@@ -10,6 +10,9 @@ class Category extends Model
 {
     use HasFactory;
 
+    protected $table = 'categories'; // Vérifie que c'est bien le nom de ta table
+    protected $fillable = ['name']; // Mets les colonnes correctes
+
     /**
      * Relation : Une catégorie contient plusieurs produits
      *

@@ -20,16 +20,33 @@ class ProductController extends Controller
      *
      * @return \Illuminate\Http\JsonResponse
      */
-    public function index()
+    public function index(Request $request)
     {
-        // $products = Product::with('category', 'user')->get();
-        // return response()->json($products, 200);
-        $products = Product::all();
+        // $products = Product::all();
 
-        // Transformer le nom des ressources en "Articles"
-        return response()->json([
-            'Articles' => $products
-        ], 200);
+        // // Transformer le nom des ressources en "Articles"
+        // return response()->json([
+        //     'Articles' => $products
+        // ], 200);
+
+        $user = Auth::user(); // Récupérer l'utilisateur connecté
+
+        if (!$user) {
+            return response()->json(['error' => 'Utilisateur non authentifié'], 401);
+        }
+    
+        // Vérifier si l'utilisateur a le droit de voir des produits
+        if ($user->Roles_id_role === 2) { // Si c'est un vendeur
+            $products = Product::where('users_id_user', $user->id_user)
+                ->with('category') // Charger la relation catégorie
+                ->get();
+        } elseif ($user->Roles_id_role === 3) { // Si c'est un admin
+            $products = Product::with('category')->get(); // Voir tous les produits
+        } else {
+            return response()->json(['error' => 'Accès interdit'], 403);
+        }
+    
+        return response()->json(['Articles' => $products], 200);
     }
 
     /**
