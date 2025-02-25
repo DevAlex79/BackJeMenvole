@@ -115,14 +115,19 @@ class OrderController extends Controller
     public function destroy($id)
     {
         $order = Order::find($id);
+        $user = Auth::user();
 
         if (!$order) {
-            return response()->json(['error' => 'Commande introuvable'], 404);
+            return response()->json(['error' => 'Commande non trouvée'], 404);
         }
-
-        $order->delete();
-
-        return response()->json(['message' => 'Commande supprimée avec succès'], 200);
+    
+        // Seuls les administrateurs ou les utilisateurs avec commande en attente peuvent annuler
+        if ($user->Roles_id_role === 3 || ($user->id_user === $order->users_id_user && $order->status === 'en attente')) {
+            $order->delete();
+            return response()->json(['message' => 'Commande annulée avec succès'], 200);
+        } else {
+            return response()->json(['error' => 'Vous ne pouvez pas annuler cette commande'], 403);
+        }
     }
 
     public function store(Request $request)
@@ -179,6 +184,41 @@ class OrderController extends Controller
         return response()->json(['message' => 'Commande créée avec succès', 'order' => $order], 201);
     }
 
+    public function getUserOrders($id)
+    {
+        // Vérifie si l'utilisateur est bien authentifié
+        $user = Auth::user();
+        if (!$user || $user->id_user != $id) {
+            return response()->json(['error' => 'Accès non autorisé.'], 403);
+        }
+    
+        // Récupère les commandes de l'utilisateur connecté
+        $orders = Order::where('users_id_user', $id)->orderBy('created_at', 'desc')->get();
+    
+        if ($orders->isEmpty()) {
+            return response()->json(['message' => 'Aucune commande trouvée.'], 404);
+        }
+    
+        return response()->json($orders, 200);
+    }
+    
+    public function getAllOrders()
+{
+    try {
+        // Vérification du rôle de l'utilisateur connecté
+        $user = Auth::user();
+        if (!$user || $user->Roles_id_role !== 3) {
+            return response()->json(['error' => 'Accès refusé'], 403);
+        }
+
+        // Récupération de toutes les commandes
+        $orders = \App\Models\Order::with('user', 'items')->get();
+
+        return response()->json($orders, 200);
+    } catch (\Exception $e) {
+        return response()->json(['error' => 'Erreur lors de la récupération des commandes'], 500);
+    }
+}
 
 
 

@@ -81,9 +81,15 @@ Route::middleware([HandleCors::class])->group(function () {
         Route::post('/orders/complete', [OrderController::class, 'completeOrder']);
         Route::put('/orders/{id}', [OrderController::class, 'update']); 
         Route::delete('/orders/{id}', [OrderController::class, 'destroy']);
+        Route::get('/orders/user/{id}', [OrderController::class, 'getUserOrders']);
+
 
         // Création utilisateur (Admin uniquement)
         Route::middleware(['jwt.auth:3'])->post('/admin/create-user', [UserController::class, 'createUser']);
+
+        // Route pour récupérer toutes les commandes (accessible uniquement par les administrateurs)
+        Route::middleware(['jwt.auth:3'])->get('/orders/all', [OrderController::class, 'getAllOrders']);
+
     });
 
 });

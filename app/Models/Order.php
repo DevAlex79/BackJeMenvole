@@ -21,6 +21,10 @@ class Order extends Model
         'cart',
         'total_price',
         'status',
+        // 'shipmentType',
+        // 'shipmentPrice',
+        // 'created_at',
+        // 'updated_at'
     ];
 
     // public function user()
