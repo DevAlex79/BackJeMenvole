@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CategoryController;
+use App\Http\Controllers\Api\MessageController;
 
 // header('Access-Control-Allow-Origin: *');
 // header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
@@ -43,6 +44,12 @@ Route::middleware([HandleCors::class])->group(function () {
         Route::delete('/articles/{id}', [ProductController::class, 'destroy']); // Supprimer un article
         Route::put('/articles/{id}/stock', [ProductController::class, 'updateStock']); // Modifier stock
     });
+
+    // Messages
+    Route::post('/messages', [MessageController::class, 'store']);
+
+
+
 
     // Debug / Tests API
     Route::get('/test', function () {
