@@ -131,9 +131,29 @@ class OrderController extends Controller
         }
     
         // Seuls les administrateurs ou les utilisateurs avec commande en attente peuvent annuler
+        // if ($user->Roles_id_role === 3 || ($user->id_user === $order->users_id_user && $order->status === 'en attente')) {
+        //     $order->delete();
+        //     return response()->json(['message' => 'Commande annulée avec succès'], 200);
+        // } else {
+        //     return response()->json(['error' => 'Vous ne pouvez pas annuler cette commande'], 403);
+        // }
+
+        // Vérifier si l'utilisateur peut annuler la commande
         if ($user->Roles_id_role === 3 || ($user->id_user === $order->users_id_user && $order->status === 'en attente')) {
+
+            // Récupérer les produits de la commande
+            $cartItems = json_decode($order->cart, true);
+
+            foreach ($cartItems as $item) {
+                $product = \App\Models\Product::find($item['id']);
+                if ($product) {
+                    $product->stock += $item['quantity']; // Réajouter les quantités au stock
+                    $product->save();
+                }
+            }
+
             $order->delete();
-            return response()->json(['message' => 'Commande annulée avec succès'], 200);
+            return response()->json(['message' => 'Commande annulée avec succès et stock rétabli'], 200);
         } else {
             return response()->json(['error' => 'Vous ne pouvez pas annuler cette commande'], 403);
         }
