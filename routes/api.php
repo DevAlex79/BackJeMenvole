@@ -90,6 +90,8 @@ Route::middleware([HandleCors::class])->group(function () {
         Route::put('/orders/{id}', [OrderController::class, 'update']); 
         Route::delete('/orders/{id}', [OrderController::class, 'destroy']);
         Route::get('/orders/user/{id}', [OrderController::class, 'getUserOrders']);
+        Route::middleware(['jwt.auth:3'])->get('/orders/archived', [OrderController::class, 'getArchivedOrders']);
+
 
 
         // Création utilisateur (Admin uniquement)

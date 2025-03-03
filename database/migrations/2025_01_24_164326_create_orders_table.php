@@ -19,7 +19,7 @@ return new class extends Migration
                 $table->json('items'); // Stocker les articles commandés sous forme de JSON
                 $table->timestamps();
             });
-    }
+        }
     }
 
     /**

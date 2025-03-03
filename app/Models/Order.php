@@ -6,10 +6,11 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Order extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     //protected $fillable = ['user_id', 'amount', 'items'];
     protected $table = 'orders'; // Nom de la table en BDD
@@ -27,6 +28,8 @@ class Order extends Model
         // 'updated_at'
     ];
 
+    protected $dates = ['deleted_at']; // Permet de gérer correctement SoftDeletes
+    
     // public function user()
     // {
     //     return $this->belongsTo(User::class, 'user_id', 'id_user');

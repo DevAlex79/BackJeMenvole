@@ -159,6 +159,25 @@ class OrderController extends Controller
         }
     }
 
+    public function getArchivedOrders()
+    {
+        $user = Auth::user();
+
+        if (!$user || $user->Roles_id_role !== 3) {
+            return response()->json(['error' => 'Accès refusé'], 403);
+        }
+
+        $archivedOrders = Order::onlyTrashed()->with('user')->get(); // Récupère les commandes archivées
+
+        if ($archivedOrders->isEmpty()) {
+            return response()->json(['message' => 'Aucune commande archivée trouvée'], 404);
+        }
+
+        return response()->json($archivedOrders, 200);
+    }
+
+
+
     public function store(Request $request)
     {
         $user = Auth::user();
