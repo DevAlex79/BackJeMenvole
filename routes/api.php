@@ -79,6 +79,7 @@ Route::middleware([HandleCors::class])->group(function () {
 
         // Utilisateurs
         Route::get('/users', [UserController::class, 'index']); // Lister les utilisateurs
+        Route::get('/users/{id}', [UserController::class, 'show']); // Lister un utilisateur spécifique
         Route::put('/users/{id}', [UserController::class, 'update']); // Modifier un utilisateur
         Route::delete('/users/{id}', [UserController::class, 'destroy']); // Supprimer un utilisateur
 

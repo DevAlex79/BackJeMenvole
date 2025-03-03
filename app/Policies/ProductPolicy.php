@@ -48,10 +48,10 @@ class ProductPolicy
     {
         //return in_array($user->Roles_id_role, [2, 3]);
         if ($user->Roles_id_role === 2) {
-            // Only allow sellers to update products they own
+            // authorise les vendeurs (role = 2) à modifier SEULEMENT leurs propres produits
             return $product->user_id === $user->id;
         } elseif ($user->Roles_id_role === 3) {
-            // Allow admins to update any product
+            // authorise les admins (role = 3) à modifier n'importe quel produit
             return true;
         } else {
             return false;
@@ -64,7 +64,6 @@ class ProductPolicy
         if ($user->Roles_id_role === 2) {
             return $product->users_id_user === $user->id_user;
         }
-
         // Un administrateur (role = 3) peut modifier le stock de n'importe quel produit
         if ($user->Roles_id_role === 3) {
             return true;

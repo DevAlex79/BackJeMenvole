@@ -7,8 +7,6 @@ use Illuminate\Notifications\Notification;
 
 class OrderCompletedNotification extends Notification 
 {
-    
-
     /**
      * Create a new notification instance.
      */
@@ -23,7 +21,7 @@ class OrderCompletedNotification extends Notification
      *
      * @return array<int, string>
      */
-    public function via(object $notifiable): array
+    public function via(): array
     {
         return ['mail'];
     }
@@ -49,7 +47,7 @@ class OrderCompletedNotification extends Notification
      *
      * @return array<string, mixed>
      */
-    public function toArray(object $notifiable): array
+    public function toArray(): array
     {
         return [
             'order_id' => $this->order->id_order,

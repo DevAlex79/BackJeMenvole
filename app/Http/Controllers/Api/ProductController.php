@@ -22,13 +22,6 @@ class ProductController extends Controller
      */
     public function index(Request $request)
     {
-        // $products = Product::all();
-
-        // // Transformer le nom des ressources en "Articles"
-        // return response()->json([
-        //     'Articles' => $products
-        // ], 200);
-
         $user = Auth::user(); // Récupérer l'utilisateur connecté
 
         if (!$user) {
@@ -89,16 +82,8 @@ class ProductController extends Controller
 
         // Création du produit avec toutes les données validées
         $product = Product::create($validated);
-        // $product = Product::create([
-        //     'title' => $validated['title'],
-        //     'description' => $validated['description'],
-        //     'price' => $validated['price'],
-        //     'stock' => $validated['stock'],
-        //     'categories_id_category' => $validated['categories_id_category'], // Ajout correct de la catégorie
-        //     'users_id_user' => $user->id_user, // Ajout correct de l'ID de l'utilisateur]);
 
         return response()->json(['message' => 'Produit ajouté', 'product' => $product], 201);
-
     }
 
     /**
@@ -121,13 +106,6 @@ class ProductController extends Controller
      */
     public function show(string $id)
     {
-        // $product = Product::with('category', 'user')->find($id);
-
-        // if (!$product) {
-        //     return response()->json(['message' => 'Produit non trouvé'], 404);
-        // }
-
-        // return response()->json($product, 200);
         $product = Product::find($id);
 
         if (!$product) {

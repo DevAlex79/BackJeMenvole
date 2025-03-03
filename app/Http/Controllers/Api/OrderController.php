@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Order;
+use App\Models\Product;
 use App\Notifications\OrderCompletedNotification;
 use App\Models\User;
 use Illuminate\Support\Facades\Validator;
@@ -18,19 +19,14 @@ class OrderController extends Controller
      */
     public function completeOrder(Request $request)
     {
-        // Valider les données d'entrée
-
-        //$validated = $request->validate([
-        //     'user_id' => 'required|exists:users,id_user',
-        //     'total_price' => 'required|numeric|min:0',
-        //     'status' => 'required|string|max:20',
-        // ]);
-
+        // Validation des données
         $validator = Validator::make($request->all(), [
-            //'user_id' => 'required|exists:users,id_user',
             'id_user' => 'required|exists:users,id_user',
             'total_price' => 'required|numeric|min:0',
             'status' => 'required|string|max:20',
+            'cart' => 'required|array',
+            'cart.*.id_product' => 'required|exists:products,id_product',
+            'cart.*.quantity' => 'required|integer|min:1',
         ],[
             'user_id.required' => "L'identifiant de l'utilisateur est requis.",
             'user_id.exists' => "L'utilisateur spécifié n'existe pas.",
@@ -38,9 +34,7 @@ class OrderController extends Controller
             'total_price.numeric' => "Le prix total doit être un nombre.",
             'status.required' => "Le statut est requis.",
             'status.string' => "Le statut doit être une chaîne de caractères."
-    
         ]);
-
 
          // Vérifier si la validation échoue
         if ($validator->fails()) {
@@ -51,22 +45,37 @@ class OrderController extends Controller
         $validated = $validator->validated();
 
         // Vérifier que l'utilisateur existe
-        //$user = User::find($validated['id_user']);
         $user = User::where('id_user', $validated['id_user'])->first();
 
         if (!$user) {
             return response()->json(['error' => 'Utilisateur introuvable'], 404);
         }
 
+        // Vérifier le stock des produits
+        foreach ($validated['cart'] as $item) {
+            $product = Product::find($item['id_product']);
+            if ($product->stock < $item['quantity']) {
+                return response()->json([
+                    'error' => "Stock insuffisant pour le produit : {$product->name}. Disponible : {$product->stock}, demandé : {$item['quantity']}."
+                ], 400);
+            }
+        }
+
+        // Décrémenter le stock des produits commandés
+        foreach ($validated['cart'] as $item) {
+            $product = Product::find($item['id_product']);
+            $product->stock -= $item['quantity'];
+            $product->save();
+        }
+
         // Créer la commande
         $order = Order::create([
-            //'user_id' => $request->user_id,
-            //'amount' => $request->amount,
             'users_id_user' => $validated['user_id'],
             'total_price' => $validated['total_price'],
             'status' => $validated['status'],
             'shipment_type' => $request->shipmentType,
             'shipment_price' => $request->shipmentPrice,
+            'cart' => json_encode($validated['cart']),
 
         ]);
 
@@ -143,7 +152,7 @@ class OrderController extends Controller
             // 'status' => 'required|string|max:20',
             //'user_id' => 'required|exists:users,id',
             'id_user' => 'required|exists:users,id_user',
-            'cart' => 'required|array',
+            'cart' => 'required|array|min:1',
             'cart.*.title' => 'required|string',
             'cart.*.quantity' => 'required|integer|min:1',
             'cart.*.unitPrice' => 'required|numeric|min:0',
@@ -165,6 +174,18 @@ class OrderController extends Controller
 
         Log::info('Données reçues pour création de commande', $request->all());
 
+         // Vérifier le stock disponible pour chaque produit
+        foreach ($request->cart as $item) {
+            $product = Product::where('title', $item['title'])->first();
+
+            if (!$product) {
+                return response()->json(['error' => "Le produit '{$item['title']}' n'existe pas."], 404);
+            }
+
+            if ($product->stock < $item['quantity']) {
+                return response()->json(['error' => "Stock insuffisant pour le produit '{$item['title']}'."], 400);
+            }
+        }
 
         // Créer la commande
         $order = Order::create([
@@ -177,6 +198,15 @@ class OrderController extends Controller
             'total_price' => $request->total_price,
             'status' => $request->status,
         ]);
+
+        // Décrémenter le stock des produits commandés
+        foreach ($request->cart as $item) {
+            $product = Product::where('title', $item['title'])->first();
+
+            if ($product) {
+                $product->decrement('stock', $item['quantity']);
+            }
+        }
 
         // Notifier l'utilisateur
         $order->user->notify(new OrderCompletedNotification($order));

@@ -14,11 +14,29 @@ return new class extends Migration
         if (!Schema::hasTable('products')) {
             Schema::create('products', function (Blueprint $table) {
                 $table->id();
-                $table->string('name');
+                $table->string('title'); 
                 $table->text('description')->nullable();
                 $table->decimal('price', 8, 2);
                 $table->foreignId('category_id')->constrained()->onDelete('cascade');
+                $table->string('image')->nullable();
+                $table->string('alt')->nullable();
+                $table->integer('stock')->default(10); // Stock avec valeur par défaut
                 $table->timestamps();
+            });
+        } else {
+            Schema::table('products', function (Blueprint $table) {
+                if (!Schema::hasColumn('products', 'stock')) {
+                    $table->integer('stock')->default(10);
+                }
+                if (!Schema::hasColumn('products', 'image')) {
+                    $table->string('image')->nullable();
+                }
+                if (!Schema::hasColumn('products', 'alt')) {
+                    $table->string('alt')->nullable();
+                }
+                if (Schema::hasColumn('products', 'name')) {
+                    $table->renameColumn('name', 'title');
+                }
             });
         }
     }
