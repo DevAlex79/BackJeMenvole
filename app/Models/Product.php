@@ -20,7 +20,9 @@ class Product extends Model
         'price',
         'stock',
         'categories_id_category',
-        'users_id_user' 
+        'users_id_user',
+        'image',
+        'alt'
     ];
 
     /**
