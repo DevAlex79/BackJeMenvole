@@ -94,7 +94,14 @@ class OrderController extends Controller
         }
     
         // Filtrer les commandes par utilisateur connecté
-        $orders = Order::where('users_id_user', $user->id_user)->with('user')->get();
+        //$orders = Order::where('users_id_user', $user->id_user)->with('user')->get();
+         // Vérifier si c'est un administrateur
+        if ($user->Roles_id_role === 3) {
+            $orders = Order::with('user')->get(); // Admins voient toutes les commandes
+        } else {
+            // Filtrer les commandes de l'utilisateur connecté
+            $orders = Order::where('users_id_user', $user->id_user)->with('user')->get();
+        }
     
         if ($orders->isEmpty()) {
             return response()->json(['message' => 'Aucune commande trouvée'], 404);
