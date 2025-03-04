@@ -15,7 +15,12 @@ class MessageController extends Controller {
             'message' => 'required|string',
         ]);
 
-        $message = Message::create($validated);
+         // Protection contre XSS : Laravel échappe automatiquement les entrées
+        $message = Message::create([
+            'prenom' => e($validated['prenom']),
+            'email' => e($validated['email']),
+            'message' => e($validated['message']),
+        ]);
 
         // Envoyer un email à l'admin
         Mail::raw("Nouveau message de {$message->prenom} ({$message->email}):\n\n{$message->message}", function ($mail) {
