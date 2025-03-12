@@ -14,9 +14,17 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\MessageController;
 
-// header('Access-Control-Allow-Origin: *');
-// header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-// header('Access-Control-Allow-Headers: Content-Type, Authorization');
+
+/*
+|--------------------------------------------------------------------------
+| API Routes
+|--------------------------------------------------------------------------
+|
+| Here is where you can register API routes for your application. These
+| routes are loaded by the RouteServiceProvider within a group which
+| is assigned the "api" middleware group. Enjoy building your API!
+|
+*/
 
 Route::get('/test', function () {
     return response()->json(['message' => 'CORS fonctionne !']);
@@ -47,9 +55,6 @@ Route::middleware([HandleCors::class])->group(function () {
 
     // Messages
     Route::post('/messages', [MessageController::class, 'store']);
-
-
-
 
     // Debug / Tests API
     Route::get('/test', function () {
@@ -91,8 +96,6 @@ Route::middleware([HandleCors::class])->group(function () {
         Route::delete('/orders/{id}', [OrderController::class, 'destroy']);
         Route::get('/orders/user/{id}', [OrderController::class, 'getUserOrders']);
         Route::middleware(['jwt.auth:3'])->get('/orders/archived', [OrderController::class, 'getArchivedOrders']);
-
-
 
         // Création utilisateur (Admin uniquement)
         Route::middleware(['jwt.auth:3'])->post('/admin/create-user', [UserController::class, 'createUser']);

@@ -11,7 +11,6 @@ use Illuminate\Support\Facades\Validator;
 use App\Models\Role;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
-//use Tymon\JWTAuth\Facades\JWTAuth;
 
 
 
@@ -42,7 +41,7 @@ class UserController extends Controller
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
-        //$role = Role::where('role_name', $request->role)->first();
+        // Vérifier si le rôle est valide
         $role = Role::find($request->Roles_id_role);
         if (!$role) {
             return response()->json(['error' => 'Rôle invalide'], 422);
