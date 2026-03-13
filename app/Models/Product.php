@@ -10,36 +10,34 @@ class Product extends Model
 {
     use HasFactory;
 
-    protected $table = 'products'; // Nom de la table en BDD
-    protected $primaryKey = 'id_product'; // Clé primaire personnalisée
-    public $timestamps = false; // Désactiver les colonnes created_at et updated_at si non présentes
+    protected $table      = 'products';
+    protected $primaryKey = 'id_product';
+
+    /**
+     * Les timestamps (created_at / updated_at) sont présents dans la migration.
+     * On les active ici pour que Laravel les gère automatiquement.
+     * (Valeur par défaut dans Eloquent : true — la ligne est donc informative.)
+     */
+    public $timestamps = true;
 
     protected $fillable = [
-        'title',       // Correspond au nom de la colonne
+        'title',
         'description',
         'price',
         'stock',
         'categories_id_category',
         'users_id_user',
         'image',
-        'alt'
+        'alt',
     ];
 
     /**
-     * Alias pour transformer Product en Article (utilisé par le frontend).
+     * La transformation title → name est désormais gérée par ProductResource.
+     * Le modèle reste un pur miroir de la base de données, sans logique de présentation.
      */
-    public function toArray(): array
-    {
-        $array = parent::toArray();
-        $array['name'] = $this->title; // Alias pour le titre
-        unset($array['title']); // Supprime "title" pour éviter la confusion
-        return $array;
-    }
 
     /**
-     * Relation : Un produit appartient à un utilisateur
-     *
-     * @return BelongsTo
+     * Relation : un produit appartient à un utilisateur (vendeur ou admin).
      */
     public function user(): BelongsTo
     {
@@ -47,9 +45,7 @@ class Product extends Model
     }
 
     /**
-     * Relation : Un produit appartient à une catégorie
-     *
-     * @return BelongsTo
+     * Relation : un produit appartient à une catégorie.
      */
     public function category(): BelongsTo
     {

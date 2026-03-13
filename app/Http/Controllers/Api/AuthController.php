@@ -2,94 +2,99 @@
 
 namespace App\Http\Controllers\Api;
 
-
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
-use App\Models\User;
 use Illuminate\Routing\Controller;
-
+use Illuminate\Support\Facades\Auth;
 
 class AuthController extends Controller
 {
     public function __construct()
     {
-        $this->middleware('auth:api', ['except' => ['login', 'register']]);
+        // Toutes les méthodes sauf login nécessitent un token JWT valide.
+        // L'inscription est gérée exclusivement par RegisterController.
+        $this->middleware('auth:api', ['except' => ['login']]);
     }
+
+    /**
+     * Authentifie un utilisateur et retourne un token JWT.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function login(Request $request)
     {
         $credentials = $request->only('email', 'password');
 
         if (!$token = Auth::attempt($credentials)) {
-            return response()->json(['error' => 'Unauthorized'], 401);
+            return response()->json(['error' => 'Identifiants incorrects'], 401);
         }
 
-        //return $this->respondWithToken($token);
         $user = Auth::user();
 
         return response()->json([
             'access_token' => $token,
-            'token_type' => 'bearer',
-            'expires_in' => Auth::factory()->getTTL() * 60,
-            'user' => [
-                'id' => $user->id_user,
+            'token_type'   => 'bearer',
+            // TTL en secondes (config jwt.ttl est en minutes)
+            'expires_in'   => Auth::factory()->getTTL() * 60,
+            'user'         => [
+                'id'       => $user->id_user,
                 'username' => $user->username,
-                'email' => $user->email,
-                'role' => $user->Roles_id_role // Ajout du rôle 
-            ]
+                'email'    => $user->email,
+                'role'     => $user->Roles_id_role,
+            ],
         ]);
     }
 
+    /**
+     * Déconnecte l'utilisateur en invalidant son token JWT (blacklist).
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function logout()
     {
         Auth::guard('api')->logout();
+
         return response()->json(['message' => 'Déconnexion réussie']);
     }
 
+    /**
+     * Génère un nouveau token JWT à partir d'un token valide non expiré.
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function refresh()
     {
         return $this->respondWithToken(Auth::refresh());
-
     }
 
+    /**
+     * Retourne les informations de l'utilisateur connecté.
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function userProfile()
     {
-        //return response()->json(Auth::user());
-        try {
-            //$user = Auth::user();
-            //$user = Auth::guard('api')->user();
-            if (!$user = Auth::user()) {
-                return response()->json(['error' => 'Utilisateur non authentifié'], 401);
-            }
-            return response()->json($user);
-        } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 500);
+        $user = Auth::user();
+
+        if (!$user) {
+            return response()->json(['error' => 'Utilisateur non authentifié'], 401);
         }
 
+        return response()->json($user);
     }
 
-    public function register(Request $request)
-    {
-        $validatedData = $request->validate([
-            'username' => 'required|string|max:255|unique:users',
-            'email' => 'required|string|email|max:255|unique:users',
-            'password' => 'required|string|min:8|confirmed',
-        ]);
-
-        $user = User::create([
-            'username' => $validatedData['username'],
-            'email' => $validatedData['email'],
-            'password' => bcrypt($validatedData['password']),
-        ]);
-
-        return response()->json(['message' => 'Inscription réussie', 'user' => $user], 201);
-    }
-
-    protected function respondWithToken($token)
+    /**
+     * Formate la réponse contenant le token JWT.
+     *
+     * @param  string  $token
+     * @return \Illuminate\Http\JsonResponse
+     */
+    protected function respondWithToken(string $token)
     {
         return response()->json([
             'access_token' => $token,
-            'token_type' => 'bearer',
-            'expires_in' => Auth::factory()->getTTL() * 60
+            'token_type'   => 'bearer',
+            'expires_in'   => Auth::factory()->getTTL() * 60,
         ]);
     }
 }

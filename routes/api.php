@@ -1,181 +1,109 @@
 <?php
 
-//use Illuminate\Support\Facades\Gate;
-use Illuminate\Http\Request;
-use Illuminate\Http\Middleware\HandleCors;
-use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\Auth;
-use App\Http\Controllers\Api\ProductController;
-use App\Http\Controllers\Api\RoleController;
-use App\Http\Controllers\Api\RegisterController;
-use App\Http\Controllers\Api\OrderController;
-use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\MessageController;
-
+use App\Http\Controllers\Api\OrderController;
+use App\Http\Controllers\Api\ProductController;
+use App\Http\Controllers\Api\RegisterController;
+use App\Http\Controllers\Api\RoleController;
+use App\Http\Controllers\Api\UserController;
+use Illuminate\Http\Middleware\HandleCors;
+use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
-| API Routes
+| API Routes — Je m'envole
 |--------------------------------------------------------------------------
 |
-| Here is where you can register API routes for your application. These
-| routes are loaded by the RouteServiceProvider within a group which
-| is assigned the "api" middleware group. Enjoy building your API!
+| Toutes les routes sont préfixées par /api (voir bootstrap/app.php).
+| Middleware CORS appliqué globalement.
+|
+| Rôles (RoleEnum) :
+|   1 = Client       → accès lecture publique
+|   2 = Vendeur      → gestion de ses propres produits
+|   3 = Administrateur → accès total
 |
 */
 
-Route::get('/test', function () {
-    return response()->json(['message' => 'CORS fonctionne !']);
-});
-
-Route::options('/{any}', function () {
-    return response()->json([], 200);
-})->where('any', '.*');
-
-
-// Appliquer CORS à toutes les routes
 Route::middleware([HandleCors::class])->group(function () {
 
-    // Produits (Articles)
-    Route::get('/articles', [ProductController::class, 'index']);        // Lister tous les articles
-    Route::get('/articles/{id}', [ProductController::class, 'show']);    // Afficher un article spécifique
+    // -------------------------------------------------------------------------
+    // ROUTES PUBLIQUES
+    // -------------------------------------------------------------------------
 
-    // Categories
+    // Catalogue produits (lecture seule, sans authentification)
+    Route::get('/articles', [ProductController::class, 'index']);
+    Route::get('/articles/{id}', [ProductController::class, 'show']);
+
+    // Catégories (lecture seule)
     Route::get('/categories', [CategoryController::class, 'index']);
 
-    // Routes protégées (Admins & Vendeurs)
-    Route::middleware(['jwt.auth:2,3'])->group(function () {
-        Route::post('/articles', [ProductController::class, 'store']);       // Créer un article
-        Route::put('/articles/{id}', [ProductController::class, 'update']);  // Modifier un article
-        Route::delete('/articles/{id}', [ProductController::class, 'destroy']); // Supprimer un article
-        Route::put('/articles/{id}/stock', [ProductController::class, 'updateStock']); // Modifier stock
-    });
+    // Rôles (lecture seule — utilisé par le formulaire d'inscription admin)
+    Route::get('/roles', [RoleController::class, 'index']);
+    Route::get('/roles/{id}', [RoleController::class, 'show']);
 
-    // Messages
+    // Formulaire de contact (protection XSS assurée dans MessageController)
     Route::post('/messages', [MessageController::class, 'store']);
 
-    // Debug / Tests API
-    Route::get('/test', function () {
-        return response()->json(['message' => 'API is working!']);    
+    // -------------------------------------------------------------------------
+    // AUTHENTIFICATION
+    // Rate limiting : max 10 tentatives par minute pour prévenir le brute-force.
+    // -------------------------------------------------------------------------
+    Route::middleware('throttle:10,1')->group(function () {
+        Route::post('/login', [AuthController::class, 'login'])->name('login');
+        Route::post('/register', [RegisterController::class, 'register'])->name('register');
     });
 
-    Route::get('/debug', function () {
-        return response()->json(['status' => 'ok']);
-    });
-
-    // Gestion des rôles
-    Route::get('/roles', [RoleController::class, 'index']);        
-    Route::post('/roles', [RoleController::class, 'store']);       
-    Route::get('/roles/{id}', [RoleController::class, 'show']);    
-    Route::put('/roles/{id}', [RoleController::class, 'update']);  
-    Route::delete('/roles/{id}', [RoleController::class, 'destroy']);
-
-    // Authentification
-    Route::post('/login', [AuthController::class, 'login'])->name('login'); // Connexion
-    Route::post('/register', [RegisterController::class, 'register'])->name('register'); // Inscription
-    Route::post('/logout', [AuthController::class, 'logout']); // Déconnexion
-    Route::post('/refresh', [AuthController::class, 'refresh']); // Actualiser le token
-    Route::get('/user-profile', [AuthController::class, 'userProfile']); // Profil utilisateur
-
-    // Routes sécurisées JWT Auth
+    // -------------------------------------------------------------------------
+    // ROUTES PROTÉGÉES PAR JWT (tout utilisateur authentifié)
+    // -------------------------------------------------------------------------
     Route::middleware(['jwt.auth'])->group(function () {
 
-        // Utilisateurs
-        Route::get('/users', [UserController::class, 'index']); // Lister les utilisateurs
-        Route::get('/users/{id}', [UserController::class, 'show']); // Lister un utilisateur spécifique
-        Route::put('/users/{id}', [UserController::class, 'update']); // Modifier un utilisateur
-        Route::delete('/users/{id}', [UserController::class, 'destroy']); // Supprimer un utilisateur
+        // Authentification
+        Route::post('/logout', [AuthController::class, 'logout']);
+        Route::post('/refresh', [AuthController::class, 'refresh']);
+        Route::get('/user-profile', [AuthController::class, 'userProfile']);
 
-        // Commandes
-        Route::get('/orders', [OrderController::class, 'index']); 
-        Route::post('/orders', [OrderController::class, 'store']); 
+        // Profil utilisateur
+        Route::get('/users', [UserController::class, 'index']);
+        Route::get('/users/{id}', [UserController::class, 'show']);
+        Route::put('/users/{id}', [UserController::class, 'update']);
+        Route::delete('/users/{id}', [UserController::class, 'destroy']);
+
+        // Commandes (routes statiques AVANT les routes paramétrées pour éviter les conflits)
+        Route::get('/orders', [OrderController::class, 'index']);
+        Route::post('/orders', [OrderController::class, 'store']);
         Route::post('/orders/complete', [OrderController::class, 'completeOrder']);
-        Route::put('/orders/{id}', [OrderController::class, 'update']); 
-        Route::delete('/orders/{id}', [OrderController::class, 'destroy']);
+
+        // Routes admin pour les commandes (jwt.auth:3 imbriqué)
+        Route::middleware(['jwt.auth:3'])->group(function () {
+            Route::get('/orders/archived', [OrderController::class, 'getArchivedOrders']);
+            Route::get('/orders/all', [OrderController::class, 'getAllOrders']);
+        });
+
+        // Routes paramétrées après les routes statiques
         Route::get('/orders/user/{id}', [OrderController::class, 'getUserOrders']);
-        Route::middleware(['jwt.auth:3'])->get('/orders/archived', [OrderController::class, 'getArchivedOrders']);
+        Route::put('/orders/{id}', [OrderController::class, 'update']);
+        Route::delete('/orders/{id}', [OrderController::class, 'destroy']);
 
-        // Création utilisateur (Admin uniquement)
+        // Création d'utilisateur par un admin
         Route::middleware(['jwt.auth:3'])->post('/admin/create-user', [UserController::class, 'createUser']);
+    });
 
-        // Route pour récupérer toutes les commandes (accessible uniquement par les administrateurs)
-        Route::middleware(['jwt.auth:3'])->get('/orders/all', [OrderController::class, 'getAllOrders']);
+    // -------------------------------------------------------------------------
+    // ROUTES PROTÉGÉES PAR JWT (Vendeurs + Administrateurs uniquement)
+    // -------------------------------------------------------------------------
+    Route::middleware(['jwt.auth:2,3'])->group(function () {
+        Route::post('/articles', [ProductController::class, 'store']);
+        Route::put('/articles/{id}', [ProductController::class, 'update']);
+        Route::delete('/articles/{id}', [ProductController::class, 'destroy']);
+        Route::put('/articles/{id}/stock', [ProductController::class, 'updateStock']);
 
+        // Gestion des rôles (écriture réservée aux admins/vendeurs)
+        Route::post('/roles', [RoleController::class, 'store']);
+        Route::put('/roles/{id}', [RoleController::class, 'update']);
+        Route::delete('/roles/{id}', [RoleController::class, 'destroy']);
     });
 
 });
-
-
-
-// Route::get('/articles', [ProductController::class, 'index']);        // Lister tous les articles
-// Route::post('/articles', [ProductController::class, 'store']);       // Créer un article
-// Route::get('/articles/{id}', [ProductController::class, 'show']);    // Afficher un article spécifique
-// Route::put('/articles/{id}', [ProductController::class, 'update']);  // Mettre à jour un article
-// Route::delete('/articles/{id}', [ProductController::class, 'destroy']); // Supprimer un article
-// Route::put('/articles/{id}/stock', [ProductController::class, 'updateStock']); // Mettre à jour le stock d'un article
-
-
-// Route::get('/test', function () {
-//     return response()->json(['message' => 'API is working!']);    
-// });
-
-// Route::get('/debug', function () {
-//     return response()->json(['status' => 'ok']);
-// });
-
-// Route::get('/roles', [RoleController::class, 'index']);        // Lister tous les rôles
-// Route::post('/roles', [RoleController::class, 'store']);       // Créer un rôle
-// Route::get('/roles/{id}', [RoleController::class, 'show']);    // Afficher un rôle spécifique
-// Route::put('/roles/{id}', [RoleController::class, 'update']);  // Mettre à jour un rôle
-// Route::delete('/roles/{id}', [RoleController::class, 'destroy']); // Supprimer un rôle
-
-// Route::post('/register', [RegisterController::class, 'register']); // Inscription
-
-// // Routes pour les utilisateurs
-// Route::get('/users', [UserController::class, 'index']); // Lister les utilisateurs
-// Route::put('/users/{id}', [UserController::class, 'update']); // Modifier un utilisateur
-// Route::delete('/users/{id}', [UserController::class, 'destroy']); // Supprimer un utilisateur
-
-// // Routes pour les commandes
-// Route::get('/orders', [OrderController::class, 'index']); // Lister toutes les commandes
-// Route::post('/orders', [OrderController::class, 'store']); // Créer une commande
-// Route::post('/orders/complete', [OrderController::class, 'completeOrder']); // Finalisation de commande
-// Route::put('/orders/{id}', [OrderController::class, 'update']); // Modifier une commande
-// Route::delete('/orders/{id}', [OrderController::class, 'destroy']); // Supprimer une commande
-
-
-// Route::post('/login', [AuthController::class, 'login'])->name('login'); // Connexion
-// Route::post('/register', [RegisterController::class, 'register'])->name('register'); // Inscription
-// Route::post('/logout', [AuthController::class, 'logout']); // Deconnexion
-// Route::post('/refresh', [AuthController::class, 'refresh']); // Actualiser le token
-// Route::get('/user-profile', [AuthController::class, 'userProfile']); // Profil utilisateur
-
-// Route::middleware('jwt.auth')->get('/user', function (Request $request) {
-//     return response()->json([
-//     'user' => Auth::guard('api')->user(),
-//     'message' => 'Utilisateur authentifié avec succès'
-// ]);
-// });
-
-// Route::middleware('auth:api')->post('/orders', [OrderController::class, 'store']);
-
-// // Routes protégées : accès uniquement aux admins et vendeurs
-// Route::middleware(['jwt.auth:2,3'])->group(function () {
-//     Route::get('/admin/products', [ProductController::class, 'index']); // Lister produits
-//     Route::post('/admin/products/store', [ProductController::class, 'store']); // Ajouter
-//     Route::get('/admin/products/edit/{id}', [ProductController::class, 'edit']); // Voir un produit
-//     Route::post('/admin/products/update/{id}', [ProductController::class, 'update']); // Modifier
-//     Route::delete('/admin/products/delete/{id}', [ProductController::class, 'destroy']); // Supprimer
-// });
-
-// Route::middleware(['jwt.auth'])->group(function () {
-//     Route::post('/admin/create-user', [UserController::class, 'createUser']);
-// });
-
-
-
-
-
-

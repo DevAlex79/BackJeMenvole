@@ -2,106 +2,92 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\RoleEnum;
 use App\Http\Controllers\Controller;
+use App\Http\Resources\ProductResource;
 use App\Models\Product;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 
 class ProductController extends Controller
 {
     /**
-     * Display a listing of the resource.
-     */
-    /**
-     * Lister tous les produits.
+     * Liste les produits accessibles à l'utilisateur connecté (back-office).
      *
-     * @return \Illuminate\Http\JsonResponse
-     */
-    public function index(Request $request)
-    {
-        $user = Auth::user(); // Récupérer l'utilisateur connecté
-
-        if (!$user) {
-            return response()->json(['error' => 'Utilisateur non authentifié'], 401);
-        }
-    
-        // Vérifier si l'utilisateur a le droit de voir des produits
-        if ($user->Roles_id_role === 2) { // Si c'est un vendeur
-            $products = Product::where('users_id_user', $user->id_user)
-                ->with('category') // Charger la relation catégorie
-                ->get();
-        } elseif ($user->Roles_id_role === 3) { // Si c'est un admin
-            $products = Product::with('category')->get(); // Voir tous les produits
-        } else {
-            return response()->json(['error' => 'Accès interdit'], 403);
-        }
-    
-        return response()->json(['Articles' => $products], 200);
-    }
-
-    /**
-     * Store a newly created resource in storage.
-     */
-    /**
-     * Créer un nouveau produit.
+     * - Vendeur (RoleEnum::Vendeur)        → uniquement ses propres produits
+     * - Administrateur (RoleEnum::Admin)   → tous les produits
+     * - Autres rôles                       → 403 Forbidden
+     *
+     * Les résultats sont paginés (20 par page) pour éviter les surcharges.
      *
      * @param  \Illuminate\Http\Request  $request
      * @return \Illuminate\Http\JsonResponse
      */
+    public function index(Request $request)
+    {
+        $user = Auth::user();
+
+        if ($user->Roles_id_role === RoleEnum::Vendeur->value) {
+            // Un vendeur ne voit que ses propres produits
+            $products = Product::where('users_id_user', $user->id_user)
+                ->with('category')
+                ->paginate(20);
+
+        } elseif ($user->Roles_id_role === RoleEnum::Administrateur->value) {
+            // Un admin voit tous les produits
+            $products = Product::with('category')->paginate(20);
+
+        } else {
+            return response()->json(['error' => 'Accès interdit'], 403);
+        }
+
+        // Utilisation de la Resource pour transformer la réponse (title → name, etc.)
+        return ProductResource::collection($products)->response();
+    }
+
     /**
-     * Ajoute un nouveau produit (réservé aux admins et vendeurs).
+     * Crée un nouveau produit (réservé aux vendeurs et admins).
+     *
+     * La vérification d'autorisation passe par la ProductPolicy::create()
+     * enregistrée dans AuthServiceProvider.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\JsonResponse
      */
     public function store(Request $request)
     {
         $user = Auth::user();
 
-        if (!$user || !Gate::allows('create', Product::class)) {
+        if (!Gate::allows('create', Product::class)) {
             return response()->json(['error' => 'Accès refusé.'], 403);
         }
 
-        // Validation des données de la requête
         $validated = $request->validate([
-            'title' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'price' => 'required|numeric|min:0',
-            'stock' => 'required|integer|min:0',
-            'categories_id_category' => 'required|exists:categories,id', // Exige une catégorie existante
+            'title'                  => 'required|string|max:255',
+            'description'            => 'nullable|string',
+            'price'                  => 'required|numeric|min:0',
+            'stock'                  => 'required|integer|min:0',
+            'categories_id_category' => 'required|exists:categories,id',
         ]);
 
-        // Vérifie si la catégorie existe bien
-        $categoryExists = \App\Models\Category::where('id', $validated['categories_id_category'])->exists();
-        if (!$categoryExists) {
-            return response()->json(['error' => 'La catégorie spécifiée n\'existe pas.'], 422);
-        }
-
-        // Ajout automatique de l'ID du créateur (vendeur/admin)
+        // Assignation automatique du créateur
         $validated['users_id_user'] = $user->id_user;
 
-        // Création du produit avec toutes les données validées
         $product = Product::create($validated);
 
-        return response()->json(['message' => 'Produit ajouté', 'product' => $product], 201);
+        return response()->json([
+            'message' => 'Produit ajouté',
+            'product' => new ProductResource($product),
+        ], 201);
     }
 
     /**
-     * Affiche les détails d’un produit.
-     */
-    public function edit($id)
-    {
-        $product = Product::findOrFail($id);
-        return response()->json($product, 200);
-    }
-
-    /**
-     * Display the specified resource.
-     */
-    /**
-     * Afficher un produit spécifique.
+     * Affiche un produit spécifique (accessible publiquement).
      *
-     * @param  int  $id
+     * @param  int  $id  Identifiant du produit
      * @return \Illuminate\Http\JsonResponse
      */
     public function show(string $id)
@@ -112,48 +98,61 @@ class ProductController extends Controller
             return response()->json(['message' => 'Produit non trouvé'], 404);
         }
 
-        return response()->json(['Article' => $product], 200);
+        return response()->json(['Article' => new ProductResource($product)], 200);
     }
 
     /**
-     * Update the specified resource in storage.
-     */
-    /**
-     * Mettre à jour un produit existant.
+     * Met à jour un produit existant.
+     *
+     * Seuls les champs explicitement autorisés sont mis à jour (via only()).
+     * Cela évite qu'un vendeur puisse modifier users_id_user ou d'autres
+     * champs sensibles en envoyant des données non prévues.
+     *
+     * La vérification passe par ProductPolicy::update().
      *
      * @param  \Illuminate\Http\Request  $request
-     * @param  int  $id
+     * @param  int                       $id  Identifiant du produit
      * @return \Illuminate\Http\JsonResponse
      */
     public function update(Request $request, string $id)
     {
-        $user = Auth::user();
         $product = Product::findOrFail($id);
 
-        if (!$user || !Gate::allows('update', $product)) {
+        if (!Gate::allows('update', $product)) {
             return response()->json(['error' => 'Accès refusé.'], 403);
         }
 
-        $product->update($request->all());
+        $validated = $request->validate([
+            'title'                  => 'sometimes|string|max:255',
+            'description'            => 'sometimes|nullable|string',
+            'price'                  => 'sometimes|numeric|min:0',
+            'stock'                  => 'sometimes|integer|min:0',
+            'categories_id_category' => 'sometimes|exists:categories,id',
+            'image'                  => 'sometimes|nullable|string',
+            'alt'                    => 'sometimes|nullable|string',
+        ]);
 
-        return response()->json(['message' => 'Produit mis à jour', 'product' => $product], 200);
+        // Mise à jour uniquement avec les champs validés (pas de $request->all())
+        $product->update($validated);
+
+        return response()->json([
+            'message' => 'Produit mis à jour',
+            'product' => new ProductResource($product),
+        ], 200);
     }
 
     /**
-     * Remove the specified resource from storage.
-     */
-    /**
-     * Supprimer un produit.
+     * Supprime un produit.
+     * La vérification passe par ProductPolicy::delete().
      *
-     * @param  int  $id
+     * @param  int  $id  Identifiant du produit
      * @return \Illuminate\Http\JsonResponse
      */
     public function destroy(string $id)
     {
-        $user = Auth::user();
         $product = Product::findOrFail($id);
 
-        if (!$user || !Gate::allows('delete', $product)) {
+        if (!Gate::allows('delete', $product)) {
             return response()->json(['error' => 'Accès refusé.'], 403);
         }
 
@@ -162,17 +161,22 @@ class ProductController extends Controller
         return response()->json(['message' => 'Produit supprimé'], 200);
     }
 
+    /**
+     * Met à jour uniquement le stock d'un produit.
+     * La vérification passe par ProductPolicy::updateStock().
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  int                       $id  Identifiant du produit
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function updateStock(Request $request, $id)
     {
-        $user = Auth::user();
         $product = Product::findOrFail($id);
 
-        // Vérification d'autorisation via Policy
-        if (!$user || !Gate::allows('updateStock', $product)) {
+        if (!Gate::allows('updateStock', $product)) {
             return response()->json(['error' => 'Accès refusé.'], 403);
         }
 
-        // Validation des données de mise à jour
         $validator = Validator::make($request->all(), [
             'stock' => 'required|integer|min:0',
         ]);
@@ -183,8 +187,9 @@ class ProductController extends Controller
 
         $product->update(['stock' => $request->stock]);
 
-        return response()->json(['message' => 'Stock mis à jour avec succès', 'product' => $product], 200);
+        return response()->json([
+            'message' => 'Stock mis à jour avec succès',
+            'product' => new ProductResource($product),
+        ], 200);
     }
-
-    
 }

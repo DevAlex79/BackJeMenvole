@@ -2,114 +2,115 @@
 
 namespace App\Policies;
 
+use App\Enums\RoleEnum;
 use App\Models\Product;
 use App\Models\User;
-use Illuminate\Auth\Access\Response;
 
 class ProductPolicy
 {
     /**
      * Vérifie si l'utilisateur peut gérer les produits (admins et vendeurs).
+     * Utilisé par le Gate 'manage-products'.
      */
-    public function manage(User $user) :bool
+    public function manage(User $user): bool
     {
-        return in_array($user->Roles_id_role, [2, 3]); // Vendeur (2) & Admin (3)
+        return RoleEnum::canManageProducts($user->Roles_id_role);
     }
+
     /**
-     * Determine whether the user can view any models.
+     * Seuls les vendeurs et admins peuvent lister les produits (back-office).
+     * Les clients accèdent aux produits via la route publique /articles.
      */
     public function viewAny(User $user): bool
     {
-        return in_array($user->Roles_id_role, [2, 3]);
+        return RoleEnum::canManageProducts($user->Roles_id_role);
     }
 
     /**
-     * Determine whether the user can view the model.
+     * Règle de consultation d'un produit :
+     *   - Vendeur  → uniquement ses propres produits
+     *   - Admin    → tous les produits
+     *
+     * CORRECTION : l'ancienne version comparait $product->user_id et $user->id
+     * (champs Laravel par défaut inexistants ici). Les bonnes FK sont
+     * $product->users_id_user et $user->id_user.
      */
     public function view(User $user, Product $product): bool
     {
-        //return in_array($user->Roles_id_role, [2, 3]);
-        // Check if the user has permission to view the product
-        if ($user->Roles_id_role === 2) {
-            // Only allow sellers to view products they own
-            return $product->user_id === $user->id;
-        } elseif ($user->Roles_id_role === 3) {
-            // Allow admins to view any product
-            return true;
-        } else {
-            return false;
-        }
-    }
-
-    /**
-     * Determine whether the user can update the model.
-     */
-    public function update(User $user, Product $product): bool
-    {
-        //return in_array($user->Roles_id_role, [2, 3]);
-        if ($user->Roles_id_role === 2) {
-            // authorise les vendeurs (role = 2) à modifier SEULEMENT leurs propres produits
-            return $product->user_id === $user->id;
-        } elseif ($user->Roles_id_role === 3) {
-            // authorise les admins (role = 3) à modifier n'importe quel produit
-            return true;
-        } else {
-            return false;
-        }
-    }
-
-    public function updateStock(User $user, Product $product): bool
-    {
-        // Un vendeur (role = 2) peut modifier le stock SEULEMENT pour ses propres produits
-        if ($user->Roles_id_role === 2) {
+        if ($user->Roles_id_role === RoleEnum::Vendeur->value) {
             return $product->users_id_user === $user->id_user;
         }
-        // Un administrateur (role = 3) peut modifier le stock de n'importe quel produit
-        if ($user->Roles_id_role === 3) {
+
+        if ($user->Roles_id_role === RoleEnum::Administrateur->value) {
             return true;
         }
 
-        return false; // Tout autre utilisateur est refusé
+        return false;
     }
 
     /**
-     * Determine whether the user can delete the model.
-     */
-    public function delete(User $user, Product $product): bool
-    {
-        //return in_array($user->Roles_id_role, [2, 3]);
-        if ($user->Roles_id_role === 2) {
-            // Only allow sellers to delete products they own
-            return $product->user_id === $user->id;
-        } elseif ($user->Roles_id_role === 3) {
-            // Allow admins to delete any product
-            return true;
-        } else {
-            return false;
-        }
-    }
-
-    /**
-     * Vérifie si l'utilisateur peut créer un produit.
+     * Seuls les vendeurs et admins peuvent créer un produit.
      */
     public function create(User $user): bool
     {
-        return in_array($user->Roles_id_role, [2, 3]); // Seuls les vendeurs et admins peuvent créer
+        return RoleEnum::canManageProducts($user->Roles_id_role);
     }
 
     /**
-     * Determine whether the user can restore the model.
+     * Règle de modification d'un produit :
+     *   - Vendeur  → uniquement ses propres produits
+     *   - Admin    → tous les produits
+     *
+     * CORRECTION : même correction de FK que view().
      */
-    // public function restore(User $user, Product $product): bool
-    // {
-    //     //
-    // }
+    public function update(User $user, Product $product): bool
+    {
+        if ($user->Roles_id_role === RoleEnum::Vendeur->value) {
+            return $product->users_id_user === $user->id_user;
+        }
+
+        if ($user->Roles_id_role === RoleEnum::Administrateur->value) {
+            return true;
+        }
+
+        return false;
+    }
 
     /**
-     * Determine whether the user can permanently delete the model.
+     * Règle de mise à jour du stock :
+     *   - Vendeur  → uniquement ses propres produits
+     *   - Admin    → tous les produits
      */
-    // public function forceDelete(User $user, Product $product): bool
-    // {
-    //     //
-    // }
+    public function updateStock(User $user, Product $product): bool
+    {
+        if ($user->Roles_id_role === RoleEnum::Vendeur->value) {
+            return $product->users_id_user === $user->id_user;
+        }
+
+        if ($user->Roles_id_role === RoleEnum::Administrateur->value) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Règle de suppression d'un produit :
+     *   - Vendeur  → uniquement ses propres produits
+     *   - Admin    → tous les produits
+     *
+     * CORRECTION : même correction de FK que view().
+     */
+    public function delete(User $user, Product $product): bool
+    {
+        if ($user->Roles_id_role === RoleEnum::Vendeur->value) {
+            return $product->users_id_user === $user->id_user;
+        }
+
+        if ($user->Roles_id_role === RoleEnum::Administrateur->value) {
+            return true;
+        }
+
+        return false;
+    }
 }

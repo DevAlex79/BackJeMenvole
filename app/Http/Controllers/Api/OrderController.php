@@ -2,179 +2,99 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\RoleEnum;
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
 use App\Models\Order;
 use App\Models\Product;
-use App\Notifications\OrderCompletedNotification;
 use App\Models\User;
-use Illuminate\Support\Facades\Validator;
+use App\Notifications\OrderCompletedNotification;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 
 class OrderController extends Controller
 {
+    // -------------------------------------------------------------------------
+    // LECTURE
+    // -------------------------------------------------------------------------
+
     /**
-     * Finalise une commande.
+     * Liste les commandes accessibles à l'utilisateur connecté.
+     *
+     * - Admin  → toutes les commandes (paginées)
+     * - Autres → uniquement ses propres commandes (paginées)
+     *
+     * @return \Illuminate\Http\JsonResponse
      */
-    public function completeOrder(Request $request)
-    {
-        // Validation des données
-        $validator = Validator::make($request->all(), [
-            'id_user' => 'required|exists:users,id_user',
-            'total_price' => 'required|numeric|min:0',
-            'status' => 'required|string|max:20',
-            'cart' => 'required|array',
-            'cart.*.id_product' => 'required|exists:products,id_product',
-            'cart.*.quantity' => 'required|integer|min:1',
-        ],[
-            'user_id.required' => "L'identifiant de l'utilisateur est requis.",
-            'user_id.exists' => "L'utilisateur spécifié n'existe pas.",
-            'total_price.required' => "Le prix total est requis.",
-            'total_price.numeric' => "Le prix total doit être un nombre.",
-            'status.required' => "Le statut est requis.",
-            'status.string' => "Le statut doit être une chaîne de caractères."
-        ]);
-
-         // Vérifier si la validation échoue
-        if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
-        }
-
-        // Récupérer les données validées
-        $validated = $validator->validated();
-
-        // Vérifier que l'utilisateur existe
-        $user = User::where('id_user', $validated['id_user'])->first();
-
-        if (!$user) {
-            return response()->json(['error' => 'Utilisateur introuvable'], 404);
-        }
-
-        // Vérifier le stock des produits
-        foreach ($validated['cart'] as $item) {
-            $product = Product::find($item['id_product']);
-            if ($product->stock < $item['quantity']) {
-                return response()->json([
-                    'error' => "Stock insuffisant pour le produit : {$product->name}. Disponible : {$product->stock}, demandé : {$item['quantity']}."
-                ], 400);
-            }
-        }
-
-        // Décrémenter le stock des produits commandés
-        foreach ($validated['cart'] as $item) {
-            $product = Product::find($item['id_product']);
-            $product->stock -= $item['quantity'];
-            $product->save();
-        }
-
-        // Créer la commande
-        $order = Order::create([
-            'users_id_user' => $validated['user_id'],
-            'total_price' => $validated['total_price'],
-            'status' => $validated['status'],
-            'shipment_type' => $request->shipmentType,
-            'shipment_price' => $request->shipmentPrice,
-            'cart' => json_encode($validated['cart']),
-
-        ]);
-
-        // Récupérer l'utilisateur lié et envoyer la notification
-        $order->user->notify(new OrderCompletedNotification($order));
-
-        return response()->json(['message' => 'Commande finalisée avec succès', 'order' => $order], 201);
-    }
-
     public function index()
     {
-        $user = Auth::user(); // Récupérer l'utilisateur connecté
+        $user = Auth::user();
 
-        if (!$user) {
-            return response()->json(['error' => 'Utilisateur non authentifié'], 401);
-        }
-    
-        // Filtrer les commandes par utilisateur connecté
-        //$orders = Order::where('users_id_user', $user->id_user)->with('user')->get();
-         // Vérifier si c'est un administrateur
-        if ($user->Roles_id_role === 3) {
-            $orders = Order::with('user')->get(); // Admins voient toutes les commandes
+        if (RoleEnum::isAdmin($user->Roles_id_role)) {
+            $orders = Order::with('user')->paginate(20);
         } else {
-            // Filtrer les commandes de l'utilisateur connecté
-            $orders = Order::where('users_id_user', $user->id_user)->with('user')->get();
+            $orders = Order::where('users_id_user', $user->id_user)
+                ->with('user')
+                ->paginate(20);
         }
-    
+
         if ($orders->isEmpty()) {
             return response()->json(['message' => 'Aucune commande trouvée'], 404);
         }
-    
+
         return response()->json($orders, 200);
     }
 
-    public function update(Request $request, $id)
+    /**
+     * Retourne les commandes d'un utilisateur spécifique.
+     * Seul l'utilisateur lui-même peut consulter ses commandes.
+     *
+     * @param  int  $id  Identifiant de l'utilisateur
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getUserOrders($id)
     {
-        $order = Order::find($id);
-
-        if (!$order) {
-            return response()->json(['error' => 'Commande introuvable'], 404);
-        }
-
-        $validated = $request->validate([
-            'total_price' => 'sometimes|numeric|min:0',
-            'status' => 'sometimes|string|max:20',
-        ]);
-
-        $order->update($validated);
-
-        return response()->json(['message' => 'Commande mise à jour avec succès', 'order' => $order], 200);
-    }
-
-    public function destroy($id)
-    {
-        $order = Order::find($id);
         $user = Auth::user();
 
-        if (!$order) {
-            return response()->json(['error' => 'Commande non trouvée'], 404);
+        if ($user->id_user != $id) {
+            return response()->json(['error' => 'Accès non autorisé.'], 403);
         }
-    
-        // Seuls les administrateurs ou les utilisateurs avec commande en attente peuvent annuler
-        // if ($user->Roles_id_role === 3 || ($user->id_user === $order->users_id_user && $order->status === 'en attente')) {
-        //     $order->delete();
-        //     return response()->json(['message' => 'Commande annulée avec succès'], 200);
-        // } else {
-        //     return response()->json(['error' => 'Vous ne pouvez pas annuler cette commande'], 403);
-        // }
 
-        // Vérifier si l'utilisateur peut annuler la commande
-        if ($user->Roles_id_role === 3 || ($user->id_user === $order->users_id_user && $order->status === 'en attente')) {
+        $orders = Order::where('users_id_user', $id)
+            ->orderBy('created_at', 'desc')
+            ->paginate(20);
 
-            // Récupérer les produits de la commande
-            $cartItems = json_decode($order->cart, true);
-
-            foreach ($cartItems as $item) {
-                $product = \App\Models\Product::find($item['id']);
-                if ($product) {
-                    $product->stock += $item['quantity']; // Réajouter les quantités au stock
-                    $product->save();
-                }
-            }
-
-            $order->delete();
-            return response()->json(['message' => 'Commande annulée avec succès et stock rétabli'], 200);
-        } else {
-            return response()->json(['error' => 'Vous ne pouvez pas annuler cette commande'], 403);
+        if ($orders->isEmpty()) {
+            return response()->json(['message' => 'Aucune commande trouvée.'], 404);
         }
+
+        return response()->json($orders, 200);
     }
 
+    /**
+     * Retourne toutes les commandes avec les relations user et items.
+     * Accessible uniquement aux administrateurs (protégé en route par jwt.auth:3).
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getAllOrders()
+    {
+        $orders = Order::with('user', 'items')->paginate(20);
+
+        return response()->json($orders, 200);
+    }
+
+    /**
+     * Retourne les commandes soft-deletées (archivées).
+     * Accessible uniquement aux administrateurs (protégé en route par jwt.auth:3).
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function getArchivedOrders()
     {
-        $user = Auth::user();
-
-        if (!$user || $user->Roles_id_role !== 3) {
-            return response()->json(['error' => 'Accès refusé'], 403);
-        }
-
-        $archivedOrders = Order::onlyTrashed()->with('user')->get(); // Récupère les commandes archivées
+        $archivedOrders = Order::onlyTrashed()->with('user')->paginate(20);
 
         if ($archivedOrders->isEmpty()) {
             return response()->json(['message' => 'Aucune commande archivée trouvée'], 404);
@@ -183,119 +103,275 @@ class OrderController extends Controller
         return response()->json($archivedOrders, 200);
     }
 
+    // -------------------------------------------------------------------------
+    // CRÉATION
+    // -------------------------------------------------------------------------
 
-
+    /**
+     * Crée une nouvelle commande.
+     *
+     * Stratégie de gestion du stock :
+     *   1. Toutes les vérifications de stock se font dans une transaction DB
+     *      avec verrouillage pessimiste (lockForUpdate) pour éviter les
+     *      race conditions lors de commandes simultanées.
+     *   2. Si le stock est insuffisant pour un produit, toute la transaction
+     *      est annulée (rollback automatique).
+     *   3. La notification est envoyée hors transaction pour ne pas bloquer le commit.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function store(Request $request)
     {
-        $user = Auth::user();
-        if (!$user) {
-            return response()->json(['error' => 'Utilisateur non authentifié'], 401);
-        }
-
         $validator = Validator::make($request->all(), [
-            // 'user_id' => 'required|exists:users,id_user',
-            // 'total_price' => 'required|numeric|min:0',
-            // 'status' => 'required|string|max:20',
-            //'user_id' => 'required|exists:users,id',
-            'id_user' => 'required|exists:users,id_user',
-            'cart' => 'required|array|min:1',
-            'cart.*.title' => 'required|string',
-            'cart.*.quantity' => 'required|integer|min:1',
+            'id_user'          => 'required|exists:users,id_user',
+            'cart'             => 'required|array|min:1',
+            'cart.*.title'     => 'required|string',
+            'cart.*.quantity'  => 'required|integer|min:1',
             'cart.*.unitPrice' => 'required|numeric|min:0',
-            'total_price' => 'required|numeric|min:0',
-            'status' => 'required|string|in:en attente,confirmée,expédiée,livrée',
-            'shipmentType' => 'required|string',
-            'shipmentPrice' => 'required|numeric|min:0'
+            'total_price'      => 'required|numeric|min:0',
+            'status'           => 'required|string|in:en attente,confirmée,expédiée,livrée',
+            'shipmentType'     => 'required|string',
+            'shipmentPrice'    => 'required|numeric|min:0',
         ]);
 
         if ($validator->fails()) {
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
-        // Vérifier que l'utilisateur existe
-        $user = User::find($request->id_user);
-        if (!$user) {
-            return response()->json(['error' => 'Utilisateur introuvable'], 404);
+        Log::info('Création de commande en cours', ['id_user' => $request->id_user]);
+
+        try {
+            // -----------------------------------------------------------------
+            // Transaction avec verrouillage pessimiste pour éviter les race
+            // conditions sur le stock (plusieurs commandes simultanées).
+            // lockForUpdate() bloque la ligne jusqu'à la fin de la transaction.
+            // -----------------------------------------------------------------
+            $order = DB::transaction(function () use ($request) {
+
+                foreach ($request->cart as $item) {
+                    $product = Product::where('title', $item['title'])
+                        ->lockForUpdate()
+                        ->first();
+
+                    if (!$product) {
+                        throw new \Exception("Le produit '{$item['title']}' n'existe pas.", 404);
+                    }
+
+                    if ($product->stock < $item['quantity']) {
+                        throw new \Exception(
+                            "Stock insuffisant pour '{$item['title']}'. " .
+                            "Disponible : {$product->stock}, demandé : {$item['quantity']}.",
+                            400
+                        );
+                    }
+
+                    // Décrémentation atomique garantie par le verrou
+                    $product->decrement('stock', $item['quantity']);
+                }
+
+                return Order::create([
+                    'users_id_user' => $request->id_user,
+                    'cart'          => json_encode($request->cart),
+                    'total_price'   => $request->total_price,
+                    'status'        => $request->status,
+                ]);
+            });
+
+            // Notification envoyée après le commit pour ne pas bloquer la transaction
+            $order->user->notify(new OrderCompletedNotification($order));
+
+            Log::info('Commande créée avec succès', ['id_order' => $order->id_order]);
+
+            return response()->json(['message' => 'Commande créée avec succès', 'order' => $order], 201);
+
+        } catch (\Exception $e) {
+            $statusCode = in_array($e->getCode(), [400, 404]) ? $e->getCode() : 500;
+
+            Log::error('Erreur lors de la création de commande', ['error' => $e->getMessage()]);
+
+            return response()->json(['error' => $e->getMessage()], $statusCode);
         }
+    }
 
-        Log::info('Données reçues pour création de commande', $request->all());
-
-         // Vérifier le stock disponible pour chaque produit
-        foreach ($request->cart as $item) {
-            $product = Product::where('title', $item['title'])->first();
-
-            if (!$product) {
-                return response()->json(['error' => "Le produit '{$item['title']}' n'existe pas."], 404);
-            }
-
-            if ($product->stock < $item['quantity']) {
-                return response()->json(['error' => "Stock insuffisant pour le produit '{$item['title']}'."], 400);
-            }
-        }
-
-        // Créer la commande
-        $order = Order::create([
-            // 'users_id_user' => $request->user_id,
-            // 'total_price' => $request->total_price,
-            // 'status' => $request->status,
-            //'user_id' => $request->user_id,
-            'users_id_user' => $request->id_user,
-            'cart' => json_encode($request->cart),
-            'total_price' => $request->total_price,
-            'status' => $request->status,
+    /**
+     * Finalise une commande (endpoint legacy, conservé pour compatibilité).
+     *
+     * Même logique transactionnelle que store() :
+     * vérifie puis décrémente le stock de façon atomique avec lockForUpdate.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function completeOrder(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'id_user'           => 'required|exists:users,id_user',
+            'total_price'       => 'required|numeric|min:0',
+            'status'            => 'required|string|max:20',
+            'cart'              => 'required|array',
+            'cart.*.id_product' => 'required|exists:products,id_product',
+            'cart.*.quantity'   => 'required|integer|min:1',
+        ], [
+            'id_user.required'     => "L'identifiant de l'utilisateur est requis.",
+            'id_user.exists'       => "L'utilisateur spécifié n'existe pas.",
+            'total_price.required' => 'Le prix total est requis.',
+            'total_price.numeric'  => 'Le prix total doit être un nombre.',
+            'status.required'      => 'Le statut est requis.',
         ]);
 
-        // Décrémenter le stock des produits commandés
-        foreach ($request->cart as $item) {
-            $product = Product::where('title', $item['title'])->first();
-
-            if ($product) {
-                $product->decrement('stock', $item['quantity']);
-            }
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
         }
 
-        // Notifier l'utilisateur
-        $order->user->notify(new OrderCompletedNotification($order));
+        $validated = $validator->validated();
 
-        return response()->json(['message' => 'Commande créée avec succès', 'order' => $order], 201);
+        try {
+            $order = DB::transaction(function () use ($validated) {
+
+                foreach ($validated['cart'] as $item) {
+                    // Verrou pessimiste sur chaque produit
+                    $product = Product::where('id_product', $item['id_product'])
+                        ->lockForUpdate()
+                        ->firstOrFail();
+
+                    if ($product->stock < $item['quantity']) {
+                        throw new \Exception(
+                            "Stock insuffisant pour '{$product->title}'. " .
+                            "Disponible : {$product->stock}, demandé : {$item['quantity']}.",
+                            400
+                        );
+                    }
+
+                    $product->decrement('stock', $item['quantity']);
+                }
+
+                return Order::create([
+                    'users_id_user' => $validated['id_user'],
+                    'total_price'   => $validated['total_price'],
+                    'status'        => $validated['status'],
+                    'cart'          => json_encode($validated['cart']),
+                ]);
+            });
+
+            $order->user->notify(new OrderCompletedNotification($order));
+
+            return response()->json(['message' => 'Commande finalisée avec succès', 'order' => $order], 201);
+
+        } catch (\Exception $e) {
+            $statusCode = in_array($e->getCode(), [400, 404]) ? $e->getCode() : 500;
+            return response()->json(['error' => $e->getMessage()], $statusCode);
+        }
     }
 
-    public function getUserOrders($id)
+    // -------------------------------------------------------------------------
+    // MISE À JOUR
+    // -------------------------------------------------------------------------
+
+    /**
+     * Met à jour le statut ou le prix total d'une commande.
+     *
+     * Règles d'autorisation :
+     *   - Admin          → peut modifier n'importe quelle commande
+     *   - Propriétaire   → uniquement si la commande est encore "en attente"
+     *   - Autres         → 403 Forbidden
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  int  $id  Identifiant de la commande
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function update(Request $request, $id)
     {
-        // Vérifie si l'utilisateur est bien authentifié
+        $order = Order::find($id);
+
+        if (!$order) {
+            return response()->json(['error' => 'Commande introuvable'], 404);
+        }
+
         $user = Auth::user();
-        if (!$user || $user->id_user != $id) {
-            return response()->json(['error' => 'Accès non autorisé.'], 403);
+
+        // Vérification d'autorisation :
+        // - Admin : accès total
+        // - Propriétaire : uniquement si la commande est "en attente"
+        $isAdmin        = RoleEnum::isAdmin($user->Roles_id_role);
+        $isOwnerPending = ($user->id_user === $order->users_id_user)
+                          && ($order->status === 'en attente');
+
+        if (!$isAdmin && !$isOwnerPending) {
+            return response()->json(['error' => 'Accès refusé. Vous ne pouvez pas modifier cette commande.'], 403);
         }
-    
-        // Récupère les commandes de l'utilisateur connecté
-        $orders = Order::where('users_id_user', $id)->orderBy('created_at', 'desc')->get();
-    
-        if ($orders->isEmpty()) {
-            return response()->json(['message' => 'Aucune commande trouvée.'], 404);
-        }
-    
-        return response()->json($orders, 200);
+
+        $validated = $request->validate([
+            'total_price' => 'sometimes|numeric|min:0',
+            'status'      => 'sometimes|string|in:en attente,confirmée,expédiée,livrée',
+        ]);
+
+        $order->update($validated);
+
+        return response()->json(['message' => 'Commande mise à jour avec succès', 'order' => $order], 200);
     }
-    
-    public function getAllOrders()
-{
-    try {
-        // Vérification du rôle de l'utilisateur connecté
-        $user = Auth::user();
-        if (!$user || $user->Roles_id_role !== 3) {
-            return response()->json(['error' => 'Accès refusé'], 403);
+
+    // -------------------------------------------------------------------------
+    // SUPPRESSION / ANNULATION
+    // -------------------------------------------------------------------------
+
+    /**
+     * Annule (soft-delete) une commande et réintègre les quantités au stock.
+     *
+     * Règles d'autorisation :
+     *   - Admin            → peut annuler n'importe quelle commande
+     *   - Propriétaire     → uniquement si la commande est "en attente"
+     *
+     * La réintégration du stock est effectuée dans une transaction pour
+     * garantir la cohérence en cas d'erreur (atomicité).
+     *
+     * @param  int  $id  Identifiant de la commande
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function destroy($id)
+    {
+        $order = Order::find($id);
+        $user  = Auth::user();
+
+        if (!$order) {
+            return response()->json(['error' => 'Commande non trouvée'], 404);
         }
 
-        // Récupération de toutes les commandes
-        $orders = \App\Models\Order::with('user', 'items')->get();
+        $isAdmin        = RoleEnum::isAdmin($user->Roles_id_role);
+        $isOwnerPending = ($user->id_user === $order->users_id_user)
+                          && ($order->status === 'en attente');
 
-        return response()->json($orders, 200);
-    } catch (\Exception $e) {
-        return response()->json(['error' => 'Erreur lors de la récupération des commandes'], 500);
+        if (!$isAdmin && !$isOwnerPending) {
+            return response()->json(['error' => 'Vous ne pouvez pas annuler cette commande.'], 403);
+        }
+
+        try {
+            DB::transaction(function () use ($order) {
+                $cartItems = json_decode($order->cart, true) ?? [];
+
+                // Réintégration du stock dans la même transaction avec verrou
+                foreach ($cartItems as $item) {
+                    // Supporte les deux formats de panier (id ou id_product)
+                    $productId = $item['id'] ?? $item['id_product'] ?? null;
+
+                    if ($productId) {
+                        $product = Product::lockForUpdate()->find($productId);
+                        if ($product) {
+                            $product->increment('stock', $item['quantity']);
+                        }
+                    }
+                }
+
+                $order->delete(); // Soft-delete
+            });
+
+            Log::info('Commande annulée et stock rétabli', ['id_order' => $order->id_order]);
+
+            return response()->json(['message' => 'Commande annulée avec succès et stock rétabli'], 200);
+
+        } catch (\Exception $e) {
+            Log::error('Erreur lors de l\'annulation de la commande', ['error' => $e->getMessage()]);
+            return response()->json(['error' => 'Erreur lors de l\'annulation de la commande'], 500);
+        }
     }
-}
-
-
-
 }
