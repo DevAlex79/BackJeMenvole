@@ -23,8 +23,12 @@ class OrderController extends Controller
     /**
      * Liste les commandes accessibles à l'utilisateur connecté.
      *
-     * - Admin  → toutes les commandes (paginées)
-     * - Autres → uniquement ses propres commandes (paginées)
+     * - Admin  → toutes les commandes (paginées, pour le back-office)
+     * - Client → uniquement ses propres commandes (tableau plat pour le frontend)
+     *
+     * Note : on conserve ->get() pour les clients afin de ne pas changer
+     * le format de réponse attendu par le frontend Vue.js (tableau JSON direct).
+     * La pagination est réservée aux vues admin qui gèrent de grands volumes.
      *
      * @return \Illuminate\Http\JsonResponse
      */
@@ -33,11 +37,14 @@ class OrderController extends Controller
         $user = Auth::user();
 
         if (RoleEnum::isAdmin($user->Roles_id_role)) {
+            // Admin : réponse paginée (peut avoir des milliers de commandes)
             $orders = Order::with('user')->paginate(20);
         } else {
+            // Client/Vendeur : toutes ses commandes en tableau plat
             $orders = Order::where('users_id_user', $user->id_user)
                 ->with('user')
-                ->paginate(20);
+                ->orderBy('created_at', 'desc')
+                ->get();
         }
 
         if ($orders->isEmpty()) {
@@ -49,7 +56,10 @@ class OrderController extends Controller
 
     /**
      * Retourne les commandes d'un utilisateur spécifique.
+     *
      * Seul l'utilisateur lui-même peut consulter ses commandes.
+     * Retourne un tableau plat (->get()) pour rester compatible avec
+     * le format attendu par le frontend Vue.js.
      *
      * @param  int  $id  Identifiant de l'utilisateur
      * @return \Illuminate\Http\JsonResponse
@@ -64,7 +74,7 @@ class OrderController extends Controller
 
         $orders = Order::where('users_id_user', $id)
             ->orderBy('created_at', 'desc')
-            ->paginate(20);
+            ->get();
 
         if ($orders->isEmpty()) {
             return response()->json(['message' => 'Aucune commande trouvée.'], 404);

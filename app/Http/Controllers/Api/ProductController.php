@@ -30,6 +30,11 @@ class ProductController extends Controller
     {
         $user = Auth::user();
 
+        // Route publique sans token : l'utilisateur n'est pas authentifié
+        if (!$user) {
+            return response()->json(['error' => 'Authentification requise'], 401);
+        }
+
         if ($user->Roles_id_role === RoleEnum::Vendeur->value) {
             // Un vendeur ne voit que ses propres produits
             $products = Product::where('users_id_user', $user->id_user)
