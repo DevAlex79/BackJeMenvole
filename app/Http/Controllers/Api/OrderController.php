@@ -178,14 +178,24 @@ class OrderController extends Controller
                 ]);
             });
 
-            // Notification envoyée après le commit pour ne pas bloquer la transaction
-            $order->user->notify(new OrderCompletedNotification($order));
-
             Log::info('Commande créée avec succès', ['id_order' => $order->id_order]);
+
+            // Notification isolée dans son propre try/catch :
+            // une panne SMTP ne doit PAS annuler la réponse de succès.
+            // La commande est déjà commitée en base, on log l'erreur et on continue.
+            try {
+                $order->user->notify(new OrderCompletedNotification($order));
+            } catch (\Exception $notifEx) {
+                Log::warning('Notification commande non envoyée (SMTP ?)', [
+                    'id_order' => $order->id_order,
+                    'error'    => $notifEx->getMessage(),
+                ]);
+            }
 
             return response()->json(['message' => 'Commande créée avec succès', 'order' => $order], 201);
 
         } catch (\Exception $e) {
+            // Erreurs métier : stock insuffisant (400), produit introuvable (404), autres (500)
             $statusCode = in_array($e->getCode(), [400, 404]) ? $e->getCode() : 500;
 
             Log::error('Erreur lors de la création de commande', ['error' => $e->getMessage()]);
@@ -254,7 +264,15 @@ class OrderController extends Controller
                 ]);
             });
 
-            $order->user->notify(new OrderCompletedNotification($order));
+            // Notification isolée : une panne SMTP ne doit pas retourner une erreur au client
+            try {
+                $order->user->notify(new OrderCompletedNotification($order));
+            } catch (\Exception $notifEx) {
+                Log::warning('Notification completeOrder non envoyée', [
+                    'id_order' => $order->id_order,
+                    'error'    => $notifEx->getMessage(),
+                ]);
+            }
 
             return response()->json(['message' => 'Commande finalisée avec succès', 'order' => $order], 201);
 
