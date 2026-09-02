@@ -2,23 +2,19 @@
 
 namespace App\Models;
 
+use App\Observers\ProductObserver;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+#[ObservedBy(ProductObserver::class)]
 class Product extends Model
 {
     use HasFactory;
 
     protected $table      = 'products';
     protected $primaryKey = 'id_product';
-
-    /**
-     * Les timestamps (created_at / updated_at) sont présents dans la migration.
-     * On les active ici pour que Laravel les gère automatiquement.
-     * (Valeur par défaut dans Eloquent : true — la ligne est donc informative.)
-     */
-    public $timestamps = true;
 
     protected $fillable = [
         'title',
@@ -31,13 +27,16 @@ class Product extends Model
         'alt',
     ];
 
-    /**
-     * La transformation title → name est désormais gérée par ProductResource.
-     * Le modèle reste un pur miroir de la base de données, sans logique de présentation.
-     */
+    protected function casts(): array
+    {
+        return [
+            'price' => 'decimal:2',
+            'stock' => 'integer',
+        ];
+    }
 
     /**
-     * Relation : un produit appartient à un utilisateur (vendeur ou admin).
+     * Vendeur/admin propriétaire du produit.
      */
     public function user(): BelongsTo
     {
@@ -45,7 +44,7 @@ class Product extends Model
     }
 
     /**
-     * Relation : un produit appartient à une catégorie.
+     * Catégorie du produit.
      */
     public function category(): BelongsTo
     {

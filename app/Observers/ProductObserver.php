@@ -7,45 +7,20 @@ use Illuminate\Support\Facades\Log;
 
 class ProductObserver
 {
-    /**
-     * Handle the Product "created" event.
-     */
-    public function created(Product $product): void
-    {
-        //
-    }
+    /** Seuil d'alerte de stock bas. */
+    private const LOW_STOCK_THRESHOLD = 10;
 
     /**
-     * Handle the Product "updated" event.
+     * Journalise une alerte quand le stock passe sous le seuil.
      */
     public function updated(Product $product): void
     {
-        if ($product->isDirty('stock') && $product->stock < 10) {
-            Log::warning("Alerte : Le stock du produit {$product->id} est bas ({$product->stock}) !");
+        if ($product->wasChanged('stock') && $product->stock < self::LOW_STOCK_THRESHOLD) {
+            Log::warning('Stock bas', [
+                'id_product' => $product->id_product,
+                'title'      => $product->title,
+                'stock'      => $product->stock,
+            ]);
         }
-    }
-
-    /**
-     * Handle the Product "deleted" event.
-     */
-    public function deleted(Product $product): void
-    {
-        //
-    }
-
-    /**
-     * Handle the Product "restored" event.
-     */
-    public function restored(Product $product): void
-    {
-        //
-    }
-
-    /**
-     * Handle the Product "force deleted" event.
-     */
-    public function forceDeleted(Product $product): void
-    {
-        //
     }
 }

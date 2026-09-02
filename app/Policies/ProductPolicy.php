@@ -6,111 +6,64 @@ use App\Enums\RoleEnum;
 use App\Models\Product;
 use App\Models\User;
 
+/**
+ * Règles d'autorisation sur les produits.
+ *
+ * Principe commun à view / update / updateStock / delete :
+ *   - un vendeur n'agit que sur SES produits (users_id_user) ;
+ *   - un administrateur agit sur tous les produits ;
+ *   - tout autre rôle est refusé.
+ *
+ * Auto-découverte Laravel 11 : App\Models\Product => App\Policies\ProductPolicy.
+ */
 class ProductPolicy
 {
     /**
-     * Vérifie si l'utilisateur peut gérer les produits (admins et vendeurs).
-     * Utilisé par le Gate 'manage-products'.
+     * L'utilisateur peut-il agir sur ce produit précis ?
      */
-    public function manage(User $user): bool
+    private function owns(User $user, Product $product): bool
     {
-        return RoleEnum::canManageProducts($user->Roles_id_role);
+        if ((int) $user->Roles_id_role === RoleEnum::Administrateur->value) {
+            return true;
+        }
+
+        return (int) $user->Roles_id_role === RoleEnum::Vendeur->value
+            && (int) $product->users_id_user === (int) $user->id_user;
     }
 
     /**
-     * Seuls les vendeurs et admins peuvent lister les produits (back-office).
-     * Les clients accèdent aux produits via la route publique /articles.
+     * Lister le back-office produits (vendeurs et admins).
      */
     public function viewAny(User $user): bool
     {
-        return RoleEnum::canManageProducts($user->Roles_id_role);
+        return RoleEnum::canManageProducts((int) $user->Roles_id_role);
     }
 
-    /**
-     * Règle de consultation d'un produit :
-     *   - Vendeur  → uniquement ses propres produits
-     *   - Admin    → tous les produits
-     *
-     * CORRECTION : l'ancienne version comparait $product->user_id et $user->id
-     * (champs Laravel par défaut inexistants ici). Les bonnes FK sont
-     * $product->users_id_user et $user->id_user.
-     */
     public function view(User $user, Product $product): bool
     {
-        if ($user->Roles_id_role === RoleEnum::Vendeur->value) {
-            return $product->users_id_user === $user->id_user;
-        }
-
-        if ($user->Roles_id_role === RoleEnum::Administrateur->value) {
-            return true;
-        }
-
-        return false;
+        return $this->owns($user, $product);
     }
 
     /**
-     * Seuls les vendeurs et admins peuvent créer un produit.
+     * Créer un produit (vendeurs et admins).
      */
     public function create(User $user): bool
     {
-        return RoleEnum::canManageProducts($user->Roles_id_role);
+        return RoleEnum::canManageProducts((int) $user->Roles_id_role);
     }
 
-    /**
-     * Règle de modification d'un produit :
-     *   - Vendeur  → uniquement ses propres produits
-     *   - Admin    → tous les produits
-     *
-     * CORRECTION : même correction de FK que view().
-     */
     public function update(User $user, Product $product): bool
     {
-        if ($user->Roles_id_role === RoleEnum::Vendeur->value) {
-            return $product->users_id_user === $user->id_user;
-        }
-
-        if ($user->Roles_id_role === RoleEnum::Administrateur->value) {
-            return true;
-        }
-
-        return false;
+        return $this->owns($user, $product);
     }
 
-    /**
-     * Règle de mise à jour du stock :
-     *   - Vendeur  → uniquement ses propres produits
-     *   - Admin    → tous les produits
-     */
     public function updateStock(User $user, Product $product): bool
     {
-        if ($user->Roles_id_role === RoleEnum::Vendeur->value) {
-            return $product->users_id_user === $user->id_user;
-        }
-
-        if ($user->Roles_id_role === RoleEnum::Administrateur->value) {
-            return true;
-        }
-
-        return false;
+        return $this->owns($user, $product);
     }
 
-    /**
-     * Règle de suppression d'un produit :
-     *   - Vendeur  → uniquement ses propres produits
-     *   - Admin    → tous les produits
-     *
-     * CORRECTION : même correction de FK que view().
-     */
     public function delete(User $user, Product $product): bool
     {
-        if ($user->Roles_id_role === RoleEnum::Vendeur->value) {
-            return $product->users_id_user === $user->id_user;
-        }
-
-        if ($user->Roles_id_role === RoleEnum::Administrateur->value) {
-            return true;
-        }
-
-        return false;
+        return $this->owns($user, $product);
     }
 }
