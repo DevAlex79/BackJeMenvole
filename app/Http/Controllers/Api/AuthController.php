@@ -2,53 +2,36 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Auth;
 
 class AuthController extends Controller
 {
-    public function __construct()
-    {
-        // Toutes les méthodes sauf login nécessitent un token JWT valide.
-        // L'inscription est gérée exclusivement par RegisterController.
-        $this->middleware('auth:api', ['except' => ['login']]);
-    }
-
     /**
      * Authentifie un utilisateur et retourne un token JWT.
      *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\JsonResponse
+     * NB : les routes /logout, /refresh, /user-profile sont protégées par
+     * le middleware 'jwt.auth' dans routes/api.php. (L'ancien
+     * `$this->middleware()` en constructeur n'a plus aucun effet en
+     * Laravel 11 et a été retiré.)
      */
     public function login(Request $request)
     {
-        $credentials = $request->only('email', 'password');
+        $credentials = $request->validate([
+            'email'    => 'required|email',
+            'password' => 'required|string',
+        ]);
 
-        if (!$token = Auth::attempt($credentials)) {
+        if (! $token = Auth::attempt($credentials)) {
             return response()->json(['error' => 'Identifiants incorrects'], 401);
         }
 
-        $user = Auth::user();
-
-        return response()->json([
-            'access_token' => $token,
-            'token_type'   => 'bearer',
-            // TTL en secondes (config jwt.ttl est en minutes)
-            'expires_in'   => Auth::factory()->getTTL() * 60,
-            'user'         => [
-                'id'       => $user->id_user,
-                'username' => $user->username,
-                'email'    => $user->email,
-                'role'     => $user->Roles_id_role,
-            ],
-        ]);
+        return $this->respondWithToken($token, Auth::user());
     }
 
     /**
-     * Déconnecte l'utilisateur en invalidant son token JWT (blacklist).
-     *
-     * @return \Illuminate\Http\JsonResponse
+     * Invalide le token JWT courant (blacklist).
      */
     public function logout()
     {
@@ -58,9 +41,7 @@ class AuthController extends Controller
     }
 
     /**
-     * Génère un nouveau token JWT à partir d'un token valide non expiré.
-     *
-     * @return \Illuminate\Http\JsonResponse
+     * Émet un nouveau token à partir d'un token valide.
      */
     public function refresh()
     {
@@ -68,33 +49,33 @@ class AuthController extends Controller
     }
 
     /**
-     * Retourne les informations de l'utilisateur connecté.
-     *
-     * @return \Illuminate\Http\JsonResponse
+     * Retourne l'utilisateur connecté.
      */
     public function userProfile()
     {
-        $user = Auth::user();
-
-        if (!$user) {
-            return response()->json(['error' => 'Utilisateur non authentifié'], 401);
-        }
-
-        return response()->json($user);
+        return response()->json(Auth::user());
     }
 
     /**
      * Formate la réponse contenant le token JWT.
-     *
-     * @param  string  $token
-     * @return \Illuminate\Http\JsonResponse
      */
-    protected function respondWithToken(string $token)
+    protected function respondWithToken(string $token, $user = null)
     {
-        return response()->json([
+        $payload = [
             'access_token' => $token,
             'token_type'   => 'bearer',
-            'expires_in'   => Auth::factory()->getTTL() * 60,
-        ]);
+            'expires_in'   => Auth::factory()->getTTL() * 60, // secondes
+        ];
+
+        if ($user) {
+            $payload['user'] = [
+                'id'       => $user->id_user,
+                'username' => $user->username,
+                'email'    => $user->email,
+                'role'     => $user->Roles_id_role,
+            ];
+        }
+
+        return response()->json($payload);
     }
 }
