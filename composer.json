@@ -1,8 +1,8 @@
 {
-    "name": "laravel/laravel",
+    "name": "devalex79/back-je-m-envole",
     "type": "project",
-    "description": "The skeleton application for the Laravel framework.",
-    "keywords": ["laravel", "framework"],
+    "description": "API REST du site e-commerce « Je m'envole » (Laravel 11 + JWT).",
+    "keywords": ["laravel", "api", "jwt", "e-commerce"],
     "license": "MIT",
     "require": {
         "php": "^8.2",
