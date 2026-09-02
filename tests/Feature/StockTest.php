@@ -7,22 +7,30 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
+/**
+ * Mise à jour du stock via PUT /api/articles/{id}/stock.
+ */
 class StockTest extends TestCase
 {
     use RefreshDatabase;
-    public function test_admin_can_update_stock()
+
+    public function test_un_admin_peut_mettre_a_jour_le_stock(): void
     {
-        $admin = User::factory()->create(['Roles_id_role' => 3]);
-        $product = Product::factory()->create(['stock' => 10]);
+        $admin   = User::factory()->admin()->create();
+        $product = Product::factory()->stock(10)->create();
 
-        $this->actingAs($admin, 'api');
+        $this->putJson("/api/articles/{$product->id_product}/stock", ['stock' => 20], $this->authHeaders($admin))
+            ->assertOk();
 
-        $response = $this->putJson("/api/articles/{$product->id}/stock", [
-            'stock' => 20
-        ]);
+        $this->assertDatabaseHas('products', ['id_product' => $product->id_product, 'stock' => 20]);
+    }
 
-        $response->assertStatus(200);
-        $this->assertDatabaseHas('products', ['id' => $product->id, 'stock' => 20]);
+    public function test_un_vendeur_ne_peut_pas_modifier_le_stock_d_un_autre(): void
+    {
+        $vendeur = User::factory()->vendeur()->create();
+        $product = Product::factory()->create(); // appartient à un autre vendeur
+
+        $this->putJson("/api/articles/{$product->id_product}/stock", ['stock' => 99], $this->authHeaders($vendeur))
+            ->assertForbidden();
     }
 }
-
