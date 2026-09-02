@@ -56,7 +56,10 @@ return [
             'prefix' => '',
             'prefix_indexes' => true,
             'strict' => true,
-            'engine' => null,
+            // InnoDB est indispensable : les transactions et lockForUpdate()
+            // utilisés lors des commandes n'ont AUCUN effet sur MyISAM
+            // (moteur par défaut de certaines installations WAMP anciennes).
+            'engine' => env('DB_ENGINE', 'InnoDB'),
             'options' => extension_loaded('pdo_mysql') ? array_filter([
                 PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
             ]) : [],

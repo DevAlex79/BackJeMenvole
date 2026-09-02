@@ -2,24 +2,23 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
+use App\Enums\RoleEnum;
 use App\Models\Role;
+use Illuminate\Database\Seeder;
 
 class RoleSeeder extends Seeder
 {
     /**
-     * Run the database seeds.
+     * Crée les trois rôles applicatifs dans l'ordre attendu par RoleEnum
+     * (1 = Client, 2 = Vendeur, 3 = Administrateur).
      */
     public function run(): void
     {
-        $roles = [
-            ['role_name' => 'Client'],       // ID 1
-            ['role_name' => 'Vendeur'],     // ID 2
-            ['role_name' => 'Administrateur'], // ID 3
-        ];
-
-        foreach ($roles as $role) {
-            Role::firstOrCreate(['role_name' => $role]);
+        foreach (RoleEnum::cases() as $role) {
+            Role::firstOrCreate(
+                ['id_role' => $role->value],
+                ['role_name' => $role->label()]
+            );
         }
     }
 }
