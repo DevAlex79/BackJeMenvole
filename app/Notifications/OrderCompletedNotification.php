@@ -2,55 +2,56 @@
 
 namespace App\Notifications;
 
+use App\Models\Order;
+use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
-class OrderCompletedNotification extends Notification 
+/**
+ * E-mail de confirmation envoyé au client après création d'une commande.
+ */
+class OrderCompletedNotification extends Notification
 {
-    /**
-     * Create a new notification instance.
-     */
+    use Queueable;
 
-    public function __construct(public $order)
+    public function __construct(public Order $order)
     {
-        //
     }
 
     /**
-     * Get the notification's delivery channels.
+     * Canaux de diffusion.
      *
      * @return array<int, string>
      */
-    public function via(): array
+    public function via(object $notifiable): array
     {
         return ['mail'];
     }
 
     /**
-     * Get the mail representation of the notification.
+     * Représentation e-mail.
      */
     public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
-                ->subject('Commande Finalisée')
-                ->greeting('Bonjour ' . $notifiable->username . ',')
-                ->line('Votre commande a bien été finalisée.')
-                ->line('Détails de votre commande :')
-                ->line('Numéro de commande : ' . $this->order->id_order)
-                ->line('Montant total : ' . $this->order->total_price . '€')
-                ->action('Voir mes commandes', url('/orders'))
-                ->salutation('Merci pour votre confiance, l\'équipe Je m\'envole');
+            ->subject('Confirmation de votre commande')
+            ->greeting('Bonjour ' . $notifiable->username . ',')
+            ->line('Votre commande a bien été enregistrée.')
+            ->line('Numéro de commande : ' . $this->order->id_order)
+            ->line('Montant total : ' . $this->order->total_price . ' €')
+            ->action('Voir mes commandes', url('/orders'))
+            ->salutation("Merci pour votre confiance, l'équipe Je m'envole");
     }
 
     /**
-     * Get the array representation of the notification.
+     * Représentation tableau (base de données / broadcast).
      *
      * @return array<string, mixed>
      */
-    public function toArray(): array
+    public function toArray(object $notifiable): array
     {
         return [
-            'order_id' => $this->order->id_order,
+            'order_id'    => $this->order->id_order,
             'total_price' => $this->order->total_price,
         ];
     }
