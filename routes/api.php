@@ -8,7 +8,6 @@ use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\RegisterController;
 use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\UserController;
-use Illuminate\Http\Middleware\HandleCors;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -16,94 +15,88 @@ use Illuminate\Support\Facades\Route;
 | API Routes — Je m'envole
 |--------------------------------------------------------------------------
 |
-| Toutes les routes sont préfixées par /api (voir bootstrap/app.php).
-| Middleware CORS appliqué globalement.
+| Préfixe /api (bootstrap/app.php) et CORS appliqués globalement.
 |
-| Rôles (RoleEnum) :
-|   1 = Client       → accès lecture publique
-|   2 = Vendeur      → gestion de ses propres produits
-|   3 = Administrateur → accès total
+| Rôles (App\Enums\RoleEnum) :
+|   1 = Client          → lecture publique du catalogue, gestion de ses commandes
+|   2 = Vendeur         → gestion de ses propres produits
+|   3 = Administrateur  → accès total
+|
+| Middlewares :
+|   'jwt.auth'   → authentification JWT (tymon/jwt-auth)
+|   'role:x,y'   → l'utilisateur doit avoir l'un des rôles listés
 |
 */
 
-Route::middleware([HandleCors::class])->group(function () {
+// -----------------------------------------------------------------------------
+// ROUTES PUBLIQUES
+// -----------------------------------------------------------------------------
+Route::get('/articles', [ProductController::class, 'index']);
+Route::get('/articles/{id}', [ProductController::class, 'show']);
+Route::get('/categories', [CategoryController::class, 'index']);
+Route::get('/roles', [RoleController::class, 'index']);
+Route::get('/roles/{id}', [RoleController::class, 'show']);
 
-    // -------------------------------------------------------------------------
-    // ROUTES PUBLIQUES
-    // -------------------------------------------------------------------------
+// Formulaire de contact — rate limité pour éviter le spam / mail-bombing.
+Route::post('/messages', [MessageController::class, 'store'])->middleware('throttle:5,1');
 
-    // Catalogue produits (lecture seule, sans authentification)
-    Route::get('/articles', [ProductController::class, 'index']);
-    Route::get('/articles/{id}', [ProductController::class, 'show']);
+// -----------------------------------------------------------------------------
+// AUTHENTIFICATION — max 10 tentatives/minute (anti brute-force)
+// -----------------------------------------------------------------------------
+Route::middleware('throttle:10,1')->group(function () {
+    Route::post('/login', [AuthController::class, 'login'])->name('login');
+    Route::post('/register', [RegisterController::class, 'register'])->name('register');
+});
 
-    // Catégories (lecture seule)
-    Route::get('/categories', [CategoryController::class, 'index']);
+// -----------------------------------------------------------------------------
+// ROUTES AUTHENTIFIÉES (tout utilisateur connecté)
+// -----------------------------------------------------------------------------
+Route::middleware('jwt.auth')->group(function () {
 
-    // Rôles (lecture seule — utilisé par le formulaire d'inscription admin)
-    Route::get('/roles', [RoleController::class, 'index']);
-    Route::get('/roles/{id}', [RoleController::class, 'show']);
+    // Authentification
+    Route::post('/logout', [AuthController::class, 'logout']);
+    Route::post('/refresh', [AuthController::class, 'refresh']);
+    Route::get('/user-profile', [AuthController::class, 'userProfile']);
 
-    // Formulaire de contact (protection XSS assurée dans MessageController)
-    Route::post('/messages', [MessageController::class, 'store']);
+    // Utilisateurs
+    // - index : admins uniquement (voir aussi UserPolicy::viewAny)
+    // - show/update/destroy : le propriétaire OU un admin (contrôlé par UserPolicy)
+    Route::get('/users', [UserController::class, 'index'])->middleware('role:3');
+    Route::get('/users/{id}', [UserController::class, 'show']);
+    Route::put('/users/{id}', [UserController::class, 'update']);
+    Route::delete('/users/{id}', [UserController::class, 'destroy']);
+    Route::post('/admin/create-user', [UserController::class, 'createUser'])->middleware('role:3');
 
-    // -------------------------------------------------------------------------
-    // AUTHENTIFICATION
-    // Rate limiting : max 10 tentatives par minute pour prévenir le brute-force.
-    // -------------------------------------------------------------------------
-    Route::middleware('throttle:10,1')->group(function () {
-        Route::post('/login', [AuthController::class, 'login'])->name('login');
-        Route::post('/register', [RegisterController::class, 'register'])->name('register');
+    // Commandes — routes statiques AVANT les routes paramétrées
+    Route::get('/orders', [OrderController::class, 'index']);
+    Route::post('/orders', [OrderController::class, 'store']);
+
+    Route::middleware('role:3')->group(function () {
+        Route::get('/orders/archived', [OrderController::class, 'getArchivedOrders']);
+        Route::get('/orders/all', [OrderController::class, 'getAllOrders']);
     });
 
-    // -------------------------------------------------------------------------
-    // ROUTES PROTÉGÉES PAR JWT (tout utilisateur authentifié)
-    // -------------------------------------------------------------------------
-    Route::middleware(['jwt.auth'])->group(function () {
+    Route::get('/orders/user/{id}', [OrderController::class, 'getUserOrders']);
+    Route::put('/orders/{id}', [OrderController::class, 'update']);
+    Route::delete('/orders/{id}', [OrderController::class, 'destroy']);
+});
 
-        // Authentification
-        Route::post('/logout', [AuthController::class, 'logout']);
-        Route::post('/refresh', [AuthController::class, 'refresh']);
-        Route::get('/user-profile', [AuthController::class, 'userProfile']);
+// -----------------------------------------------------------------------------
+// GESTION DU CATALOGUE — Vendeurs + Administrateurs
+// (ProductPolicy vérifie en plus la propriété produit par produit)
+// -----------------------------------------------------------------------------
+Route::middleware(['jwt.auth', 'role:2,3'])->group(function () {
+    Route::post('/articles', [ProductController::class, 'store']);
+    Route::put('/articles/{id}', [ProductController::class, 'update']);
+    Route::delete('/articles/{id}', [ProductController::class, 'destroy']);
+    Route::put('/articles/{id}/stock', [ProductController::class, 'updateStock']);
+});
 
-        // Profil utilisateur
-        Route::get('/users', [UserController::class, 'index']);
-        Route::get('/users/{id}', [UserController::class, 'show']);
-        Route::put('/users/{id}', [UserController::class, 'update']);
-        Route::delete('/users/{id}', [UserController::class, 'destroy']);
-
-        // Commandes (routes statiques AVANT les routes paramétrées pour éviter les conflits)
-        Route::get('/orders', [OrderController::class, 'index']);
-        Route::post('/orders', [OrderController::class, 'store']);
-        Route::post('/orders/complete', [OrderController::class, 'completeOrder']);
-
-        // Routes admin pour les commandes (jwt.auth:3 imbriqué)
-        Route::middleware(['jwt.auth:3'])->group(function () {
-            Route::get('/orders/archived', [OrderController::class, 'getArchivedOrders']);
-            Route::get('/orders/all', [OrderController::class, 'getAllOrders']);
-        });
-
-        // Routes paramétrées après les routes statiques
-        Route::get('/orders/user/{id}', [OrderController::class, 'getUserOrders']);
-        Route::put('/orders/{id}', [OrderController::class, 'update']);
-        Route::delete('/orders/{id}', [OrderController::class, 'destroy']);
-
-        // Création d'utilisateur par un admin
-        Route::middleware(['jwt.auth:3'])->post('/admin/create-user', [UserController::class, 'createUser']);
-    });
-
-    // -------------------------------------------------------------------------
-    // ROUTES PROTÉGÉES PAR JWT (Vendeurs + Administrateurs uniquement)
-    // -------------------------------------------------------------------------
-    Route::middleware(['jwt.auth:2,3'])->group(function () {
-        Route::post('/articles', [ProductController::class, 'store']);
-        Route::put('/articles/{id}', [ProductController::class, 'update']);
-        Route::delete('/articles/{id}', [ProductController::class, 'destroy']);
-        Route::put('/articles/{id}/stock', [ProductController::class, 'updateStock']);
-
-        // Gestion des rôles (écriture réservée aux admins/vendeurs)
-        Route::post('/roles', [RoleController::class, 'store']);
-        Route::put('/roles/{id}', [RoleController::class, 'update']);
-        Route::delete('/roles/{id}', [RoleController::class, 'destroy']);
-    });
-
+// -----------------------------------------------------------------------------
+// GESTION DES RÔLES — Administrateurs uniquement
+// -----------------------------------------------------------------------------
+Route::middleware(['jwt.auth', 'role:3'])->group(function () {
+    Route::post('/roles', [RoleController::class, 'store']);
+    Route::put('/roles/{id}', [RoleController::class, 'update']);
+    Route::delete('/roles/{id}', [RoleController::class, 'destroy']);
 });

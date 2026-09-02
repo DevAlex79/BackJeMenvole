@@ -3,7 +3,6 @@
 namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
-use Illuminate\Support\Facades\Route;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -17,21 +16,11 @@ class AppServiceProvider extends ServiceProvider
 
     /**
      * Bootstrap any application services.
+     *
+     * Les routes API sont chargées par bootstrap/app.php (withRouting: api).
      */
     public function boot(): void
     {
-        $this->loadApiRoutes();
-    }
-
-    protected function loadApiRoutes(): void
-    {
-        // Route::middleware('api')
-        //     ->namespace('App\Http\Controllers\Api') 
-        //     ->group(base_path('routes/api.php'));
-
-        Route::prefix('api') // Assure le préfixe "api"
-        ->middleware('api')
-        //->namespace('App\Http\Controllers\Api') 
-        ->group(base_path('routes/api.php'));
+        //
     }
 }
